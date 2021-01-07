@@ -9,20 +9,20 @@
 clear all; clc; close all;
 
 %%%%%%%%%%%%%%%%%%%%%%%% modify directory paths properly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-MyToolboxDir = fullfile('C:','Users','shin','Documents','MATLAB','bbci_public-master');
-WorkingDir = fullfile('C:','Users','shin','Documents','MATLAB','scientific_data');
-NirsMyDataDir = fullfile('F:','scientific_data_publish','rawdata','NIRS');
+MyToolboxDir = fullfile('G:','workspace','bbci_public');
+WorkingDir = fullfile('G:','workspace','scientific_data');
+NirsMyDataDir = fullfile('G:','workspace','Capstone_490','Data');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 cd(MyToolboxDir);
-startup_bbci_toolbox('DataDir',NirsMyDataDir,'TmpDir','/tmp/','History',0);
+startup_bbci_toolbox('DataDir',NirsMyDataDir);
 cd(WorkingDir);
 
 addpath(genpath(pwd));
 
 %% initial parameter
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subdir_list.nirs = {'VP001-NIRS','VP002-NIRS','VP003-NIRS','VP004-NIRS','VP005-NIRS','VP006-NIRS','VP007-NIRS','VP008-NIRS','VP009-NIRS','VP010-NIRS','VP011-NIRS','VP012-NIRS','VP013-NIRS','VP014-NIRS','VP015-NIRS','VP016-NIRS','VP017-NIRS','VP018-NIRS','VP019-NIRS','VP020-NIRS','VP021-NIRS','VP022-NIRS','VP023-NIRS','VP024-NIRS','VP025-NIRS','VP026-NIRS'};
+subdir_list.nirs = {'VP001-NIRS'};
 band_freq = 0.2;
 ord = 3;
 ival_epo  = [-10 25]*1000; % epoch range (unit: msec)
