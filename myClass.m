@@ -12,6 +12,7 @@ clear all; clc; close all;
 MyToolboxDir = fullfile('G:','workspace','bbci_public');
 WorkingDir = fullfile('G:','workspace','scientific_data');
 NirsMyDataDir = fullfile('G:','workspace','Capstone_490','Data');
+UtilDir = fullfile('G:','workspace','Capstone_490','Utils');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 cd(MyToolboxDir);
@@ -19,13 +20,14 @@ startup_bbci_toolbox('DataDir',NirsMyDataDir);
 cd(WorkingDir);
 
 addpath(genpath(pwd));
+addpath(UtilDir);
 
 %% initial parameter
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 subdir_list.nirs = {'VP001-NIRS'};
 band_freq = 0.2;
 ord = 3;
-ival_epo  = [-10 25]*1000; % epoch range (unit: msec)
+ival_epo  = [-10 60]*1000; % epoch range (unit: msec)
 ival_base = [-5 -2]*1000;  % baseline range (unit: msec)
 step_size = 1*1000; % in msec
 window_size = 5*1000; % in msec
@@ -38,19 +40,19 @@ for vp = 1 : length(subdir_list.nirs)
     disp([subdir_list.nirs{vp}, ' was started']);
     loadDir = fullfile(NirsMyDataDir,subdir_list.nirs{vp});
     cd(loadDir);
-    load cnt_wg; load mrk_wg; load mnt_wg;
+    load cnt_nback; load mrk_nback; load mnt_nback;
     cd(WorkingDir);
     
     %% low-pass filter   
-    [z,p,k] = butter(ord, band_freq/cnt_wg.deoxy.fs*2, 'low');
+    [z,p,k] = butter(ord, band_freq/cnt_nback.deoxy.fs*2, 'low');
     [SOS,G] = zp2sos(z,p,k);
     
-    cnt_wg.deoxy = proc_filtfilt(cnt_wg.deoxy, SOS, G);
-    cnt_wg.oxy   = proc_filtfilt(cnt_wg.oxy,   SOS, G);
+    cnt_nback.deoxy = proc_filtfilt(cnt_nback.deoxy, SOS, G);
+    cnt_nback.oxy   = proc_filtfilt(cnt_nback.oxy,   SOS, G);
        
     %% Segmentation
-    epo.deoxy = proc_segmentation(cnt_wg.deoxy, mrk_wg, ival_epo);
-    epo.oxy   = proc_segmentation(cnt_wg.oxy, mrk_wg, ival_epo);
+    epo.deoxy = proc_segmentation(cnt_nback.deoxy, mrk_nback, ival_epo);
+    epo.oxy   = proc_segmentation(cnt_nback.oxy, mrk_nback, ival_epo);
 
     %% baseline correction
     epo.deoxy = proc_baseline(epo.deoxy, ival_base);
@@ -74,9 +76,11 @@ for vp = 1 : length(subdir_list.nirs)
         slope.oxy{stepIdx}   = proc_slopeAcrossTime(epo.oxy,   ival(stepIdx,:));
     end
     
-    clear cnt_wg mrk_wg mnt_wg
+    %clear cnt_nback mrk_nback mnt_nback
     
     %% nShift x nFold-cross validation
+    
+    group = epo.deoxy.y;
     
     for shiftIdx = 1:nShift
         indices{shiftIdx} = crossvalind('Kfold',full(vec2ind(group)),nFold);
@@ -106,114 +110,90 @@ for vp = 1 : length(subdir_list.nirs)
                 x_test.oxy.y = squeeze(ave.oxy{stepIdx}.y(:,test));
                 x_test.oxy.clab = ave.oxy{stepIdx}.clab;
                 
-                
-                %%%%%%%%%%%%%%%%%%%%%% For EEG only %%%%%%%%%%%%%%%%%%%%%%%%%%
-                % CSP
-                [csp_train, CSP_W, CSP_EIG, CSP_A] = proc_cspAuto(x_train.eeg,'patterns', floor(size(x_train.eeg.x,2)/2), 'normalize', 1,'score','medianvar','selectPolicy','equalperclass');
-                csp_test = proc_linearDerivation(x_test.eeg,CSP_W);
-                
-                % variance and logarithm
-                var_train = proc_variance(csp_train);
-                var_test  = proc_variance(csp_test);
-                logvar_train = proc_logarithm(var_train);
-                logvar_test  = proc_logarithm(var_test);
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                
-                
                 % feature vector
                 fv_train.deoxy.x = x_train.deoxy.x; fv_train.deoxy.y = x_train.deoxy.y; fv_train.deoxy.className = {'VF','BL'};
                 fv_test.deoxy.x  = x_test.deoxy.x;  fv_test.deoxy.y  = x_test.deoxy.y;  fv_test.deoxy.className  = {'VF','BL'};
                 fv_train.oxy.x   = x_train.oxy.x;   fv_train.oxy.y   = x_train.oxy.y;   fv_train.oxy.className   = {'VF','BL'};
                 fv_test.oxy.x    = x_test.oxy.x;    fv_test.oxy.y    = x_test.oxy.y;    fv_test.oxy.className    = {'VF','BL'};
-                fv_train.eeg.x   = logvar_train.x;   fv_train.eeg.y   = x_train.eeg.y;   fv_train.eeg.className  = {'VF','BL'};
-                fv_test.eeg.x    = logvar_test.x;   fv_test.eeg.y    = x_test.eeg.y;    fv_test.eeg.className    = {'VF','BL'};
                 
-                % for EEG only
-                fv_train.eeg.x = squeeze(fv_train.eeg.x);
-                fv_test.eeg.x  = squeeze(fv_test.eeg.x);
-                
-                y_train  = group(:,train); % y_train for EEG == y_train for NIRS
-                y_test   = vec2ind(group(:,test));  % y_test for EEG == y_test for NIRS
-                
-                % train classifier
-                C.deoxy = train_RLDAshrink(fv_train.deoxy.x,y_train);
-                C.oxy   = train_RLDAshrink(fv_train.oxy.x  ,y_train);
-                C.eeg   = train_RLDAshrink(fv_train.eeg.x  ,y_train);
-                
-                %%%%%%%%%%%%%%%%%%%%%% train meta-classifier %%%%%%%%%%%%%%%%%%%%%%%%%
-                map_train.deoxy.x = LDAmapping(C.deoxy, fv_train.deoxy.x, 'meta');
-                map_train.oxy.x   = LDAmapping(C.oxy,   fv_train.oxy.x,   'meta');
-                map_train.eeg.x   = LDAmapping(C.eeg,   fv_train.eeg.x,   'meta');
-                
-                map_test.deoxy.x  = LDAmapping(C.deoxy, fv_test.deoxy.x,  'meta');
-                map_test.oxy.x    = LDAmapping(C.oxy,   fv_test.oxy.x,    'meta');
-                map_test.eeg.x    = LDAmapping(C.eeg,   fv_test.eeg.x,    'meta');
-                               
-                % meta1: HbR+HbO / meta2: HbR+EEG / meta3: HbO+EEG / meta4: HbR+HbO+EEG
-                
-                fv_train.meta1.x = [map_train.deoxy.x; map_train.oxy.x];
-                fv_test.meta1.x  = [map_test.deoxy.x ; map_test.oxy.x];
-                
-                fv_train.meta2.x = [map_train.deoxy.x; map_train.eeg.x];
-                fv_test.meta2.x  = [map_test.deoxy.x ; map_test.eeg.x];
-                
-                fv_train.meta3.x = [map_train.oxy.x; map_train.eeg.x];
-                fv_test.meta3.x  = [map_test.oxy.x ; map_test.eeg.x];
-                
-                fv_train.meta4.x = [map_train.deoxy.x; map_train.oxy.x; map_train.eeg.x];
-                fv_test.meta4.x  = [map_test.deoxy.x ; map_test.oxy.x ; map_test.eeg.x];
-                
-                y_map_train = y_train;
-                y_map_test  = y_test;
-                
-                C.meta1 = train_RLDAshrink(fv_train.meta1.x, y_map_train);
-                C.meta2 = train_RLDAshrink(fv_train.meta2.x, y_map_train);
-                C.meta3 = train_RLDAshrink(fv_train.meta3.x, y_map_train);
-                C.meta4 = train_RLDAshrink(fv_train.meta4.x, y_map_train);
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                
-                % classification
-                grouphat.deoxy(foldIdx,:) = LDAmapping(C.deoxy,fv_test.deoxy.x);
-                grouphat.oxy(foldIdx,:)   = LDAmapping(C.oxy,  fv_test.oxy.x);
-                grouphat.eeg(foldIdx,:)   = LDAmapping(C.eeg,  fv_test.eeg.x);
-                grouphat.meta1(foldIdx,:) = LDAmapping(C.meta1, fv_test.meta1.x);
-                grouphat.meta2(foldIdx,:) = LDAmapping(C.meta2, fv_test.meta2.x);
-                grouphat.meta3(foldIdx,:) = LDAmapping(C.meta3, fv_test.meta3.x);
-                grouphat.meta4(foldIdx,:) = LDAmapping(C.meta4, fv_test.meta4.x);
-                
-                cmat.deoxy(:,:,foldIdx)  = confusionmat(y_test, grouphat.deoxy(foldIdx,:));
-                cmat.oxy(:,:,foldIdx)    = confusionmat(y_test, grouphat.oxy(foldIdx,:));
-                cmat.eeg(:,:,foldIdx)    = confusionmat(y_test, grouphat.eeg(foldIdx,:));
-                cmat.meta1(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta1(foldIdx,:));
-                cmat.meta2(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta2(foldIdx,:));
-                cmat.meta3(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta3(foldIdx,:));
-                cmat.meta4(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta4(foldIdx,:));
+%                 % train classifier
+%                 C.deoxy = train_RLDAshrink(fv_train.deoxy.x,y_train);
+%                 C.oxy   = train_RLDAshrink(fv_train.oxy.x  ,y_train);
+%                 
+%                 %%%%%%%%%%%%%%%%%%%%%% train meta-classifier %%%%%%%%%%%%%%%%%%%%%%%%%
+%                 map_train.deoxy.x = LDAmapping(C.deoxy, fv_train.deoxy.x, 'meta');
+%                 map_train.oxy.x   = LDAmapping(C.oxy,   fv_train.oxy.x,   'meta');
+%                 map_train.eeg.x   = LDAmapping(C.eeg,   fv_train.eeg.x,   'meta');
+%                 
+%                 map_test.deoxy.x  = LDAmapping(C.deoxy, fv_test.deoxy.x,  'meta');
+%                 map_test.oxy.x    = LDAmapping(C.oxy,   fv_test.oxy.x,    'meta');
+%                 map_test.eeg.x    = LDAmapping(C.eeg,   fv_test.eeg.x,    'meta');
+%                                
+%                 % meta1: HbR+HbO / meta2: HbR+EEG / meta3: HbO+EEG / meta4: HbR+HbO+EEG
+%                 
+%                 fv_train.meta1.x = [map_train.deoxy.x; map_train.oxy.x];
+%                 fv_test.meta1.x  = [map_test.deoxy.x ; map_test.oxy.x];
+%                 
+%                 fv_train.meta2.x = [map_train.deoxy.x; map_train.eeg.x];
+%                 fv_test.meta2.x  = [map_test.deoxy.x ; map_test.eeg.x];
+%                 
+%                 fv_train.meta3.x = [map_train.oxy.x; map_train.eeg.x];
+%                 fv_test.meta3.x  = [map_test.oxy.x ; map_test.eeg.x];
+%                 
+%                 fv_train.meta4.x = [map_train.deoxy.x; map_train.oxy.x; map_train.eeg.x];
+%                 fv_test.meta4.x  = [map_test.deoxy.x ; map_test.oxy.x ; map_test.eeg.x];
+%                 
+%                 y_map_train = y_train;
+%                 y_map_test  = y_test;
+%                 
+%                 C.meta1 = train_RLDAshrink(fv_train.meta1.x, y_map_train);
+%                 C.meta2 = train_RLDAshrink(fv_train.meta2.x, y_map_train);
+%                 C.meta3 = train_RLDAshrink(fv_train.meta3.x, y_map_train);
+%                 C.meta4 = train_RLDAshrink(fv_train.meta4.x, y_map_train);
+%                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                 
+%                 % classification
+%                 grouphat.deoxy(foldIdx,:) = LDAmapping(C.deoxy,fv_test.deoxy.x);
+%                 grouphat.oxy(foldIdx,:)   = LDAmapping(C.oxy,  fv_test.oxy.x);
+%                 grouphat.eeg(foldIdx,:)   = LDAmapping(C.eeg,  fv_test.eeg.x);
+%                 grouphat.meta1(foldIdx,:) = LDAmapping(C.meta1, fv_test.meta1.x);
+%                 grouphat.meta2(foldIdx,:) = LDAmapping(C.meta2, fv_test.meta2.x);
+%                 grouphat.meta3(foldIdx,:) = LDAmapping(C.meta3, fv_test.meta3.x);
+%                 grouphat.meta4(foldIdx,:) = LDAmapping(C.meta4, fv_test.meta4.x);
+%                 
+%                 cmat.deoxy(:,:,foldIdx)  = confusionmat(y_test, grouphat.deoxy(foldIdx,:));
+%                 cmat.oxy(:,:,foldIdx)    = confusionmat(y_test, grouphat.oxy(foldIdx,:));
+%                 cmat.eeg(:,:,foldIdx)    = confusionmat(y_test, grouphat.eeg(foldIdx,:));
+%                 cmat.meta1(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta1(foldIdx,:));
+%                 cmat.meta2(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta2(foldIdx,:));
+%                 cmat.meta3(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta3(foldIdx,:));
+%                 cmat.meta4(:,:,foldIdx)  = confusionmat(y_test, grouphat.meta4(foldIdx,:));
             end
             
-            acc.deoxy(shiftIdx,stepIdx)    = trace((sum(cmat.deoxy,3))) / sum(sum(sum(cmat.deoxy,3),2),1);
-            acc.oxy(shiftIdx,stepIdx)      = trace((sum(cmat.oxy,3)))   / sum(sum(sum(cmat.oxy,3),2),1);
-            acc.eeg(shiftIdx,stepIdx)      = trace((sum(cmat.eeg,3)))   / sum(sum(sum(cmat.eeg,3),2),1);
-            acc.meta1(shiftIdx,stepIdx)    = trace((sum(cmat.meta1,3)))  / sum(sum(sum(cmat.meta1,3),2),1);
-            acc.meta2(shiftIdx,stepIdx)    = trace((sum(cmat.meta2,3)))  / sum(sum(sum(cmat.meta2,3),2),1);
-            acc.meta3(shiftIdx,stepIdx)    = trace((sum(cmat.meta3,3)))  / sum(sum(sum(cmat.meta3,3),2),1);
-            acc.meta4(shiftIdx,stepIdx)    = trace((sum(cmat.meta4,3)))  / sum(sum(sum(cmat.meta4,3),2),1);
+%             acc.deoxy(shiftIdx,stepIdx)    = trace((sum(cmat.deoxy,3))) / sum(sum(sum(cmat.deoxy,3),2),1);
+%             acc.oxy(shiftIdx,stepIdx)      = trace((sum(cmat.oxy,3)))   / sum(sum(sum(cmat.oxy,3),2),1);
+%             acc.eeg(shiftIdx,stepIdx)      = trace((sum(cmat.eeg,3)))   / sum(sum(sum(cmat.eeg,3),2),1);
+%             acc.meta1(shiftIdx,stepIdx)    = trace((sum(cmat.meta1,3)))  / sum(sum(sum(cmat.meta1,3),2),1);
+%             acc.meta2(shiftIdx,stepIdx)    = trace((sum(cmat.meta2,3)))  / sum(sum(sum(cmat.meta2,3),2),1);
+%             acc.meta3(shiftIdx,stepIdx)    = trace((sum(cmat.meta3,3)))  / sum(sum(sum(cmat.meta3,3),2),1);
+%             acc.meta4(shiftIdx,stepIdx)    = trace((sum(cmat.meta4,3)))  / sum(sum(sum(cmat.meta4,3),2),1);
 
         end
     end
     
-    mean_acc.deoxy(vp,:) = mean(acc.deoxy,1);
-    mean_acc.oxy(vp,:)   = mean(acc.oxy,1);
-    mean_acc.eeg(vp,:)   = mean(acc.eeg,1);
-    mean_acc.meta1(vp,:) = mean(acc.meta1,1);
-    mean_acc.meta2(vp,:) = mean(acc.meta2,1);
-    mean_acc.meta3(vp,:) = mean(acc.meta3,1);
-    mean_acc.meta4(vp,:) = mean(acc.meta4,1);
+%     mean_acc.deoxy(vp,:) = mean(acc.deoxy,1);
+%     mean_acc.oxy(vp,:)   = mean(acc.oxy,1);
+%     mean_acc.eeg(vp,:)   = mean(acc.eeg,1);
+%     mean_acc.meta1(vp,:) = mean(acc.meta1,1);
+%     mean_acc.meta2(vp,:) = mean(acc.meta2,1);
+%     mean_acc.meta3(vp,:) = mean(acc.meta3,1);
+%     mean_acc.meta4(vp,:) = mean(acc.meta4,1);
     
 end
-
-time = ival(:,2);
-figure(1)
-plot(time/1000,[mean(mean_acc.eeg); mean(mean_acc.meta1); mean(mean_acc.meta4)]);
-xlim([-5 25]); ylim([0.4 0.9]); 
-xlabel('Time (s)');
-ylabel('Classification accuracy');
+% 
+% time = ival(:,2);
+% figure(1)
+% plot(time/1000,[mean(mean_acc.eeg); mean(mean_acc.meta1); mean(mean_acc.meta4)]);
+% xlim([-5 25]); ylim([0.4 0.9]); 
+% xlabel('Time (s)');
+% ylabel('Classification accuracy');
