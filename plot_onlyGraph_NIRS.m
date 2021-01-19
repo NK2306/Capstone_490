@@ -1,8 +1,8 @@
-function H= plot_scalpEvolutionPlusChannel_NIRS(erp, mnt, clab, ival, varargin)
-%PLOT_SCALPEVOLUTIONPLUSCHANNEL - Display evolution of scalp topographies 
+function H= plot_onlyGraph_NIRS(erp, clab, ival, varargin)
+%plot_onlyGraph_NIRS - Display evolution of scalp topographies 
 %
 %Synposis:
-% H= plot_scalpEvolutionPlusChannel(ERP, MNT, CLAB, IVAL, <OPTS>)
+% H= plot_scalpEvolutionPlusChannel(ERP, CLAB, IVAL, <OPTS>)
 %
 %Description:
 % Makes an ERP plot in the upper panel with given interval marked,
@@ -13,7 +13,6 @@ function H= plot_scalpEvolutionPlusChannel_NIRS(erp, mnt, clab, ival, varargin)
 %
 %Input:
 % ERP: struct of epoched EEG data.
-% MNT: struct defining an electrode montage
 % CLAB: label of the channel(s) which are to be displayed in the
 %       ERP plot.
 % IVAL: [nIvals x 2]-sized array of interval, which are marked in the
@@ -222,70 +221,6 @@ end
 %  opt.Subplot= reshape(opt.Subplot, [nClasses, nIvals]);
 %end
 cb_per_ival= strcmp(opt.ScalePos, 'horiz');
-for cc= 1:nClasses,
-  if ~any(any(erp.x(:,:,cc))),
-    util_warning('empty_Class', sprintf('Class %d is empty', cc));
-    continue;
-  end
-  for ii= 1:nIvals,
-    if any(isnan(ival(ii,:))),
-      continue;
-    end
-    if ~isempty(opt.Subplot),
-      axis_getQuietly(opt.Subplot(cc, ii));
-    else
-      subplotxl(nClasses+opt.PlotChannel, nIvals, ...
-                ii+(cc-1+subplot_Offset)*nIvals, ...
-                [0.01+0.08*cb_per_ival 0.03 0.05], [0.05 0.02 0.1]);
-    end
-    opt_scalpPattern= setfield(opt_scalpPattern, 'ScalePos','none');
-    opt_scalpPattern= setfield(opt_scalpPattern, 'Class',cc);
-    H.scalp(cc,ii)= plot_scalpPattern(erp, mnt, ival(ii,:)*1000, ...
-                           opt_scalpPattern, 'CLim',mapCLim(:,cc,ii));
-    if cc==nClasses 
-      if opt.PrintIval,
-        yLim= get(gca, 'yLim');
-        if opt.PrintIvalUnits==2,
-          ival_str= sprintf('%s - %s\n%s', num2str(ival(ii,1)), num2str(ival(ii,2)), opt.XUnit);
-        elseif opt.PrintIvalUnits==1,
-          ival_str= sprintf('%s - %s %s', num2str(ival(ii,1)), num2str(ival(ii,2)), opt.XUnit);
-        else
-          ival_str= sprintf('%s - %s', num2str(ival(ii,1)), num2str(ival(ii,2)));
-        end;
-        H.text_ival(ii)= text(mean(xlim), yLim(1)-0.04*diff(yLim), ival_str, ...
-                              'verticalAli','top', 'horizontalAli','center');
-      end
-      if cb_per_ival,
-        H.cb(ii)= plotutil_colorbarAside('horiz');
-      end
-    end
-  end
-  if strcmp(opt.ScalePos, 'vert'),
-    H.cb(cc)= plotutil_colorbarAside;
-    ylabel(H.cb(cc), ['[' opt.YUnit ']']);
-    if opt.ShrinkColorbar>0,
-      cbpos= get(H.cb(cc), 'Position');
-      cbpos(2)= cbpos(2) + cbpos(4)*opt.ShrinkColorbar/2;
-      cbpos(4)= cbpos(4) - cbpos(4)*opt.ShrinkColorbar;
-      set(H.cb(cc), 'Position',cbpos);
-    end
-  end
-  pos= get(H.scalp(cc,end).ax, 'position');
-  yy= pos(2)+0.5*pos(4);
-  H.background= visutil_getBackgroundAxis;
-  H.text(cc)= text(0.01, yy, erp.className{cc});
-  set(H.text(cc), 'verticalAli','top', ...
-                  'horizontalAli','center', ...
-                  'rotation',90, ...
-                  'Visible','on', ...
-                  'FontSize',12, ...
-                  'fontWeight','bold');
-  if isfield(opt, 'ColorOrder'),
-    ccc= 1+mod(cc-1, size(opt.ColorOrder,1));
-    set(H.text(cc), 'Color',opt.ColorOrder(ccc,:));
-  end
-end
-
 
 if nargout<1,
   clear H
