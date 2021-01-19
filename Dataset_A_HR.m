@@ -105,6 +105,8 @@ load -ascii 'cmap_asymmetry.mat';
 
 %%%%%%%%%%%%%%%%% initial parameter %%%%%%%%%%%%%%%%%
 subdir_list = {'VP001-NIRS','VP002-NIRS','VP003-NIRS','VP004-NIRS','VP005-NIRS','VP006-NIRS','VP007-NIRS','VP008-NIRS','VP009-NIRS','VP010-NIRS','VP011-NIRS','VP012-NIRS','VP013-NIRS','VP014-NIRS','VP015-NIRS','VP016-NIRS','VP017-NIRS','VP018-NIRS','VP019-NIRS','VP020-NIRS','VP021-NIRS','VP022-NIRS','VP023-NIRS','VP024-NIRS','VP025-NIRS','VP026-NIRS'};
+%subdir_list = {'VP001-NIRS','VP002-NIRS','VP003-NIRS'};
+%subdir_list = {'VP001-NIRS'};
 ival_epo  = [-5 60]*1000; % epoch range (unit: msec)
 ival_base = [-5 -2]*1000; % baseline correction range (unit: msec)
 ival_scalp = [0 10; 10 20; 20 30; 30 40; 40 60]; % (unit: sec)
@@ -167,8 +169,11 @@ epo_all.deoxy = proc_average(epo_all.deoxy, 'Stats', 1);
 epo_all.oxy   = proc_average(epo_all.oxy, 'Stats', 1);
 
 %% Plot figures
-fig_set(3, 'Toolsoff', 0, 'Resize', [1 2]);
-plot_scalpEvolutionPlusChannel_NIRS(epo_all.deoxy, mnt_nback, {'AF7','C3h'}, ival_scalp, defopt_scalp_erp, 'GlobalCLim', 0, 'Extrapolation', 0, 'Contour', 0, 'ColorOrder', [0 216 255; 0 84 255; 95 0 255]/255, 'printival', 1, 'Colormap', cmap_asymmetry, 'yLim', ylim, 'CLim', [-1 0.75]*0.001, 'PlotStat', 'sem', 'LegendPos', 'NorthEast');
-
-fig_set(4, 'Toolsoff', 0, 'Resize', [1 2]);
-plot_scalpEvolutionPlusChannel_NIRS(epo_all.oxy, mnt_nback, {'AF7','C3h'}, ival_scalp, defopt_scalp_erp, 'GlobalCLim', 0, 'Extrapolation', 0, 'Contour', 0, 'ColorOrder', [255 167 167; 255 148 54; 255 0 0]/255,'printival', 1, 'Colormap', cmap_asymmetry, 'yLim', ylim, 'CLim', [-2 4/3]*0.001, 'PlotStat', 'sem', 'LegendPos','SouthWest');
+%fig_set(3, 'Toolsoff', 0, 'Resize', [1 2]);
+subplot(2,1,1);
+%plot_onlyGraph_NIRS(epo_all.deoxy, {'AF7','C3h'}, ival_scalp, defopt_scalp_erp, 'GlobalCLim', 0, 'Extrapolation', 0, 'Contour', 0, 'ColorOrder', [0 216 255; 0 84 255; 95 0 255]/255, 'printival', 1, 'Colormap', cmap_asymmetry, 'yLim', ylim, 'CLim', [-1 0.75]*0.001, 'PlotStat', 'sem', 'LegendPos', 'NorthEast');
+plot_channel(epo_all.deoxy, 'AF7');
+%fig_set(4, 'Toolsoff', 0, 'Resize', [1 2]);
+subplot(2,1,2);
+plot_channel(epo_all.deoxy, 'C3h');
+%plot_onlyGraph_NIRS(epo_all.oxy, {'AF7','C3h'}, ival_scalp, defopt_scalp_erp, 'GlobalCLim', 0, 'Extrapolation', 0, 'Contour', 0, 'ColorOrder', [255 167 167; 255 148 54; 255 0 0]/255,'printival', 1, 'Colormap', cmap_asymmetry, 'yLim', ylim, 'CLim', [-2 4/3]*0.001, 'PlotStat', 'sem', 'LegendPos','SouthWest');
