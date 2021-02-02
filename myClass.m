@@ -10,7 +10,7 @@ clear all; clc; close all;
 
 %%%%%%%%%%%%%%%%%%%%%%%% modify directory paths properly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 MyToolboxDir = fullfile('G:','workspace','bbci_public');
-WorkingDir = fullfile('G:','workspace','scientific_data');
+WorkingDir = fullfile('G:','workspace','Capstone_490');
 NirsMyDataDir = fullfile('G:','workspace','Capstone_490','Data');
 UtilDir = fullfile('G:','workspace','Capstone_490','Utils');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,7 +84,7 @@ for vp = 1 : length(subdir_list.nirs)
     
     for shiftIdx = 1:nShift
         indices{shiftIdx} = crossvalind('Kfold',full(vec2ind(group)),nFold);
-        fprintf('VF vs BL, Repeat: %d/%d\n',shiftIdx, nShift);
+        fprintf('0-back vs 2-back vs 3-back, Repeat: %d/%d\n',shiftIdx, nShift);
         
         for stepIdx = 1:nStep
             
@@ -111,47 +111,18 @@ for vp = 1 : length(subdir_list.nirs)
                 x_test.oxy.clab = ave.oxy{stepIdx}.clab;
                 
                 % feature vector
-                fv_train.deoxy.x = x_train.deoxy.x; fv_train.deoxy.y = x_train.deoxy.y; fv_train.deoxy.className = {'VF','BL'};
-                fv_test.deoxy.x  = x_test.deoxy.x;  fv_test.deoxy.y  = x_test.deoxy.y;  fv_test.deoxy.className  = {'VF','BL'};
-                fv_train.oxy.x   = x_train.oxy.x;   fv_train.oxy.y   = x_train.oxy.y;   fv_train.oxy.className   = {'VF','BL'};
-                fv_test.oxy.x    = x_test.oxy.x;    fv_test.oxy.y    = x_test.oxy.y;    fv_test.oxy.className    = {'VF','BL'};
+                fv_train.deoxy.x = x_train.deoxy.x; fv_train.deoxy.y = x_train.deoxy.y; fv_train.deoxy.className = {'0-back','2-back', '3-back'};
+                fv_test.deoxy.x  = x_test.deoxy.x;  fv_test.deoxy.y  = x_test.deoxy.y;  fv_test.deoxy.className  = {'0-back','2-back', '3-back'};
+                fv_train.oxy.x   = x_train.oxy.x;   fv_train.oxy.y   = x_train.oxy.y;   fv_train.oxy.className   = {'0-back','2-back', '3-back'};
+                fv_test.oxy.x    = x_test.oxy.x;    fv_test.oxy.y    = x_test.oxy.y;    fv_test.oxy.className    = {'0-back','2-back', '3-back'};
                 
-%                 % train classifier
-%                 C.deoxy = train_RLDAshrink(fv_train.deoxy.x,y_train);
-%                 C.oxy   = train_RLDAshrink(fv_train.oxy.x  ,y_train);
-%                 
-%                 %%%%%%%%%%%%%%%%%%%%%% train meta-classifier %%%%%%%%%%%%%%%%%%%%%%%%%
-%                 map_train.deoxy.x = LDAmapping(C.deoxy, fv_train.deoxy.x, 'meta');
-%                 map_train.oxy.x   = LDAmapping(C.oxy,   fv_train.oxy.x,   'meta');
-%                 map_train.eeg.x   = LDAmapping(C.eeg,   fv_train.eeg.x,   'meta');
-%                 
-%                 map_test.deoxy.x  = LDAmapping(C.deoxy, fv_test.deoxy.x,  'meta');
-%                 map_test.oxy.x    = LDAmapping(C.oxy,   fv_test.oxy.x,    'meta');
-%                 map_test.eeg.x    = LDAmapping(C.eeg,   fv_test.eeg.x,    'meta');
-%                                
-%                 % meta1: HbR+HbO / meta2: HbR+EEG / meta3: HbO+EEG / meta4: HbR+HbO+EEG
-%                 
-%                 fv_train.meta1.x = [map_train.deoxy.x; map_train.oxy.x];
-%                 fv_test.meta1.x  = [map_test.deoxy.x ; map_test.oxy.x];
-%                 
-%                 fv_train.meta2.x = [map_train.deoxy.x; map_train.eeg.x];
-%                 fv_test.meta2.x  = [map_test.deoxy.x ; map_test.eeg.x];
-%                 
-%                 fv_train.meta3.x = [map_train.oxy.x; map_train.eeg.x];
-%                 fv_test.meta3.x  = [map_test.oxy.x ; map_test.eeg.x];
-%                 
-%                 fv_train.meta4.x = [map_train.deoxy.x; map_train.oxy.x; map_train.eeg.x];
-%                 fv_test.meta4.x  = [map_test.deoxy.x ; map_test.oxy.x ; map_test.eeg.x];
-%                 
-%                 y_map_train = y_train;
-%                 y_map_test  = y_test;
-%                 
-%                 C.meta1 = train_RLDAshrink(fv_train.meta1.x, y_map_train);
-%                 C.meta2 = train_RLDAshrink(fv_train.meta2.x, y_map_train);
-%                 C.meta3 = train_RLDAshrink(fv_train.meta3.x, y_map_train);
-%                 C.meta4 = train_RLDAshrink(fv_train.meta4.x, y_map_train);
-%                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                 
+                y_train  = group(:,train); % y_train for EEG == y_train for NIRS
+                y_test   = vec2ind(group(:,test));  % y_test for EEG == y_test for NIRS
+                
+                % train classifier
+                C.deoxy = train_RLDAshrink(fv_train.deoxy.x,y_train);
+                C.oxy   = train_RLDAshrink(fv_train.oxy.x  ,y_train);
+                
 %                 % classification
 %                 grouphat.deoxy(foldIdx,:) = LDAmapping(C.deoxy,fv_test.deoxy.x);
 %                 grouphat.oxy(foldIdx,:)   = LDAmapping(C.oxy,  fv_test.oxy.x);
