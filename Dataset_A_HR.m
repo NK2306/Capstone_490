@@ -32,9 +32,9 @@ addpath(genpath(pwd));
 load -ascii 'cmap_asymmetry.mat';
 
 %%%%%%%%%%%%%%%%% initial parameter %%%%%%%%%%%%%%%%%
-subdir_list = {'VP001-NIRS','VP002-NIRS','VP003-NIRS','VP004-NIRS','VP005-NIRS','VP006-NIRS','VP007-NIRS','VP008-NIRS','VP009-NIRS','VP010-NIRS','VP011-NIRS','VP012-NIRS','VP013-NIRS','VP014-NIRS','VP015-NIRS','VP016-NIRS','VP017-NIRS','VP018-NIRS','VP019-NIRS','VP020-NIRS','VP021-NIRS','VP022-NIRS','VP023-NIRS','VP024-NIRS','VP025-NIRS','VP026-NIRS'};
+%subdir_list = {'VP001-NIRS','VP002-NIRS','VP003-NIRS','VP004-NIRS','VP005-NIRS','VP006-NIRS','VP007-NIRS','VP008-NIRS','VP009-NIRS','VP010-NIRS','VP011-NIRS','VP012-NIRS','VP013-NIRS','VP014-NIRS','VP015-NIRS','VP016-NIRS','VP017-NIRS','VP018-NIRS','VP019-NIRS','VP020-NIRS','VP021-NIRS','VP022-NIRS','VP023-NIRS','VP024-NIRS','VP025-NIRS','VP026-NIRS'};
 %subdir_list = {'VP001-NIRS','VP002-NIRS','VP003-NIRS'};
-%subdir_list = {'VP001-NIRS'};
+subdir_list = {'VP001-NIRS'};
 ival_epo  = [-5 60]*1000; % epoch range (unit: msec)
 ival_base = [-5 -2]*1000; % baseline correction range (unit: msec)
 ival_scalp = [0 10; 10 20; 20 30; 30 40; 40 60]; % (unit: sec)
@@ -76,7 +76,7 @@ for vp = 1 : length(subdir_list)
         epo_all.deoxy = proc_appendEpochs(epo_all.deoxy, epo.deoxy);
         epo_all.oxy   = proc_appendEpochs(epo_all.oxy,   epo.oxy);
     end
-	%{
+	
     %% Plot figures
 	%% Baseline correction
 	epo.deoxy = proc_baseline(epo.deoxy, ival_base);
@@ -95,7 +95,10 @@ for vp = 1 : length(subdir_list)
 	%% Trial-Average
 	epo.deoxy = proc_average(epo.deoxy, 'Stats', 1);
 	epo.oxy   = proc_average(epo.oxy, 'Stats', 1);
+    
+    plot_channel(epo.deoxy, mnt_nback.clab, 'YLim',[-0.006, 0.006]);
 	
+    %{
     %% Plot figures
 	subplot(2,2,1);
 	plot_channel(epo.deoxy, 'AF7', 'YLim',[-0.006, 0.006]);
@@ -105,6 +108,7 @@ for vp = 1 : length(subdir_list)
 	plot_channel(epo.oxy, 'AF7', 'YLim',[-0.006, 0.006]);
 	subplot(2,2,4);
 	plot_channel(epo.oxy, 'C3h', 'YLim',[-0.006, 0.006]);
+    
     
     %% Save Figure
     cd('Figures');
