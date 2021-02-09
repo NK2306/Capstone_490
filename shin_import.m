@@ -4,11 +4,11 @@
 %Definition du protocole  
 protocol_name='shin_worload';
 
-nirs_data_folder='/NAS/home/edelaire/Documents/data/shin/nirs';
+nirs_data_folder='G:\workspace\Capstone_490\Data';
 eeg_data_folder='/NAS/home/edelaire/Documents/data/shin/eeg';
 
 conditions = {'dsr','nback','wg'};
-n_subject = 5;
+n_subject = 1;
 
 %% No modification needed after this line
 
@@ -130,85 +130,85 @@ for i_subject = 1:n_subject
         db_add_data(iStudy, OutputFile, sDataOut); 
    end
    
-    %% Part II. Import EEG
-    
-    subject_foler= fullfile( eeg_data_folder,subject_name);
-    for i_cond = 1:length(conditions)
-       cnt=load(fullfile(subject_foler, sprintf('cnt_%s.mat',conditions{i_cond})));
-       mnt=load(fullfile(subject_foler, sprintf('mnt_%s.mat',conditions{i_cond})));
-       mrk=load(fullfile(subject_foler, sprintf('mrk_%s.mat',conditions{i_cond})));
-
-       % note: access to the field using cnt.(sprintf('cnt_%s',conditions{i_cond}))
-       
-        
-        % Step1: Create channel file structure
-        ChannelMat = db_template('channelmat');
-        ChannelMat.Comment = 'BrainAmp channels';
-        montage = mnt.(sprintf('mnt_%s',conditions{i_cond}));
-
-        nChannels = length(montage.clab);
-        % eeg channels
-        for iChan = 1:nChannels
-            ChannelMat.Channel(iChan).Name = montage.clab{iChan};
-            ChannelMat.Channel(iChan).Group = [];
-            ChannelMat.Channel(iChan).Type = 'EEG';
-            ChannelMat.Channel(iChan).Comment = montage.clab{iChan};
-            ChannelMat.Channel(iChan).Weight = 1;
-            ChannelMat.Channel(iChan).Loc = montage.pos_3d(:, iChan);
-            ChannelMat.Channel(iChan).Orient  = [];
-        end
-        
-        iStudy = db_add_condition(subject_name, [conditions{i_cond} '_EEG']);
-        sStudy = bst_get('Study', iStudy);
-        
-        [tmp, iChannelStudy] = bst_get('ChannelForStudy', iStudy);
-        db_set_channel(iChannelStudy, ChannelMat, 0, 0);
-        
-        % Step2: Load data file structure
-        data = cnt.(sprintf('cnt_%s',conditions{i_cond}));
-        F=zeros(nChannels, size(data.x,1));
-        % Create matrix data
-        for iChan = 1:nChannels
-            F(iChan,:) = data.x(:,iChan)';
-        end    
-        time= 0:1/data.fs:(size(data.x,1)-1)/data.fs;
-        
-        % step3: Load Events
-        events = mrk.(sprintf('mrk_%s',conditions{i_cond}));
-        bst_events = repmat(db_template('event'), 1, length(events.className));
-        
-        for iEvt = 1:length(events.className)
-
-            bst_events(iEvt).label      = events.className{iEvt} ;
-            evtTime = events.time( events.y(iEvt,:) == 1)/1000; % convert from ms to s
-            bst_events(iEvt).times      = evtTime;
-            bst_events(iEvt).epochs     = ones(1, size(evtTime,2));
-            bst_events(iEvt).channels   = cell(1, size(evtTime,2));
-            bst_events(iEvt).notes      = cell(1, size(evtTime,2));
-            bst_events(iEvt).color      = rand(1,3);
-            bst_events(iEvt).reactTimes = [];
-        end   
-        
-        sDataOut = db_template('data');
-        sDataOut.F            = F;
-        sDataOut.Comment      = 'EEG_raw';
-        %sDataOut.ChannelFlag  = sDataIn.ChannelFlag;
-        sDataOut.ChannelFlag  = ones(size(F, 1), 1);
-        sDataOut.Time         =  time;
-        sDataOut.DataType     = 'recordings'; 
-        sDataOut.nAvg         = 1;
-        sDataOut.Events       = bst_events;
-        sDataOut.History      = [];
-        sDataOut              = bst_history('add', sDataOut, 'process', 'Importing data');
-        sDataOut.DisplayUnits = data.yUnit;
-        
-        % Generate a new file name in the same folder
-        OutputFile = bst_process('GetNewFilename', bst_fileparts(sStudy.FileName), 'data_HB');
-        sDataOut.FileName = file_short(OutputFile);
-        bst_save(OutputFile, sDataOut, 'v7');
-        % Register in database
-        db_add_data(iStudy, OutputFile, sDataOut); 
-   end
+%     %% Part II. Import EEG
+%     
+%     subject_foler= fullfile( eeg_data_folder,subject_name);
+%     for i_cond = 1:length(conditions)
+%        cnt=load(fullfile(subject_foler, sprintf('cnt_%s.mat',conditions{i_cond})));
+%        mnt=load(fullfile(subject_foler, sprintf('mnt_%s.mat',conditions{i_cond})));
+%        mrk=load(fullfile(subject_foler, sprintf('mrk_%s.mat',conditions{i_cond})));
+% 
+%        % note: access to the field using cnt.(sprintf('cnt_%s',conditions{i_cond}))
+%        
+%         
+%         % Step1: Create channel file structure
+%         ChannelMat = db_template('channelmat');
+%         ChannelMat.Comment = 'BrainAmp channels';
+%         montage = mnt.(sprintf('mnt_%s',conditions{i_cond}));
+% 
+%         nChannels = length(montage.clab);
+%         % eeg channels
+%         for iChan = 1:nChannels
+%             ChannelMat.Channel(iChan).Name = montage.clab{iChan};
+%             ChannelMat.Channel(iChan).Group = [];
+%             ChannelMat.Channel(iChan).Type = 'EEG';
+%             ChannelMat.Channel(iChan).Comment = montage.clab{iChan};
+%             ChannelMat.Channel(iChan).Weight = 1;
+%             ChannelMat.Channel(iChan).Loc = montage.pos_3d(:, iChan);
+%             ChannelMat.Channel(iChan).Orient  = [];
+%         end
+%         
+%         iStudy = db_add_condition(subject_name, [conditions{i_cond} '_EEG']);
+%         sStudy = bst_get('Study', iStudy);
+%         
+%         [tmp, iChannelStudy] = bst_get('ChannelForStudy', iStudy);
+%         db_set_channel(iChannelStudy, ChannelMat, 0, 0);
+%         
+%         % Step2: Load data file structure
+%         data = cnt.(sprintf('cnt_%s',conditions{i_cond}));
+%         F=zeros(nChannels, size(data.x,1));
+%         % Create matrix data
+%         for iChan = 1:nChannels
+%             F(iChan,:) = data.x(:,iChan)';
+%         end    
+%         time= 0:1/data.fs:(size(data.x,1)-1)/data.fs;
+%         
+%         % step3: Load Events
+%         events = mrk.(sprintf('mrk_%s',conditions{i_cond}));
+%         bst_events = repmat(db_template('event'), 1, length(events.className));
+%         
+%         for iEvt = 1:length(events.className)
+% 
+%             bst_events(iEvt).label      = events.className{iEvt} ;
+%             evtTime = events.time( events.y(iEvt,:) == 1)/1000; % convert from ms to s
+%             bst_events(iEvt).times      = evtTime;
+%             bst_events(iEvt).epochs     = ones(1, size(evtTime,2));
+%             bst_events(iEvt).channels   = cell(1, size(evtTime,2));
+%             bst_events(iEvt).notes      = cell(1, size(evtTime,2));
+%             bst_events(iEvt).color      = rand(1,3);
+%             bst_events(iEvt).reactTimes = [];
+%         end   
+%         
+%         sDataOut = db_template('data');
+%         sDataOut.F            = F;
+%         sDataOut.Comment      = 'EEG_raw';
+%         %sDataOut.ChannelFlag  = sDataIn.ChannelFlag;
+%         sDataOut.ChannelFlag  = ones(size(F, 1), 1);
+%         sDataOut.Time         =  time;
+%         sDataOut.DataType     = 'recordings'; 
+%         sDataOut.nAvg         = 1;
+%         sDataOut.Events       = bst_events;
+%         sDataOut.History      = [];
+%         sDataOut              = bst_history('add', sDataOut, 'process', 'Importing data');
+%         sDataOut.DisplayUnits = data.yUnit;
+%         
+%         % Generate a new file name in the same folder
+%         OutputFile = bst_process('GetNewFilename', bst_fileparts(sStudy.FileName), 'data_HB');
+%         sDataOut.FileName = file_short(OutputFile);
+%         bst_save(OutputFile, sDataOut, 'v7');
+%         % Register in database
+%         db_add_data(iStudy, OutputFile, sDataOut); 
+%    end
 end  
 db_reload_database('current');
 
