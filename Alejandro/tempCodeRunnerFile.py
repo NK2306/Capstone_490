@@ -1,0 +1,2 @@
+    print(NN())
+    print(gaussNB())
