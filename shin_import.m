@@ -4,11 +4,12 @@
 %Definition du protocole  
 protocol_name='shin_worload';
 
-nirs_data_folder='G:\workspace\Capstone_490\Data';
+nirs_data_folder='/NAS/home/kh_guy/Capstone/ProcessedShinData/Shin_Data/NIRS_01-26_MATLAB';
 eeg_data_folder='/NAS/home/edelaire/Documents/data/shin/eeg';
 
-conditions = {'dsr','nback','wg'};
-n_subject = 1;
+%conditions = {'dsr','nback','wg'};
+conditions = {'nback'};
+n_subject = 26;
 
 %% No modification needed after this line
 
@@ -34,7 +35,7 @@ nst_bst_set_template_anatomy('Colin27_4NIRS_Jan19');
 
 
 for i_subject = 1:n_subject
-    subject_name =  sprintf('VP%03d',i_subject);
+    subject_name =  sprintf('VP%03d-NIRS',i_subject);
     subject_foler= fullfile( nirs_data_folder,subject_name);
     if ~exist(subject_foler) 
         bst_report('Error', [] , [] , ['Data folder ' subject_foler ' not found']);
