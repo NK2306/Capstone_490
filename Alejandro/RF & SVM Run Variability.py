@@ -10,22 +10,65 @@ from sklearn.preprocessing import StandardScaler # pylint: disable=import-error
 from sklearn.naive_bayes import GaussianNB # pylint: disable=import-error
 from sklearn.metrics import accuracy_score # pylint: disable=import-error
 from sklearn.utils import shuffle # pylint: disable=import-error
+import numpy as np
+import math
 
-dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\merged.csv'
+dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\Merged.csv'
+
+rows_avg = 10
+
 # Reading the information from the csv file into the dataset
 datasets = pd.read_csv(dataset)
-datasets.head()
+
+# print(datasets.head())
+for col in datasets.columns:
+    if 'Source.Name' in col or 'Time' in col or 'S1D1'in col or 'S13D13' in col:
+        if 'HbT' in col:
+            del datasets[f'{col}']
+        else:
+            continue
+    else:
+        del datasets[f'{col}']
+    
+rows = datasets.shape[0]
+columns = datasets.shape[1]
+
+# print(datasets.shape)
+# print(rows)
+# print(columns)
+
+# print(datasets.head())
 
 # Prepearing the Data for training
 #* Data must be divided into attributes and labels
-X = datasets.iloc[:,1:5].values
-Y = datasets.iloc[:,0].values
+X = datasets.iloc[:,1:].to_numpy()
+Y = datasets.iloc[:,0].to_numpy()
+# print(Y.shape)
+hold = pd.DataFrame()
+
+count = 1
+
+# # Make an average of N rows
+for i in range(0,len(X),rows_avg):
+    df2 = pd.DataFrame([np.mean(X[i:i+5,1:], axis=0)])
+    df2.insert(0,'Y',Y[i])
+    hold = hold.append(df2, ignore_index = True)
+    
+    # if count == 5:
+    #     break
+    # count +=1
+
+# print(hold.head())
+X = hold.iloc[:,1:].to_numpy()
+Y = hold.iloc[:,0].to_numpy()
+# print(X[:2])
+# print(Y[:2])
+# print(X.shape)
+# print(Y.shape)
 
 le = preprocessing.LabelEncoder()
-le.fit(datasets['Source.Name'])
+le.fit(hold['Y'])
 Y = le.fit_transform(Y)
-
-X,Y = shuffle(X,Y)
 
 count = 10
 
@@ -33,14 +76,22 @@ def random_forest():
     rf_accuracy = 0
     
     for _ in range(count): 
-        #Dividing the data into training and testing sets
+        # Dividing the data into training and testing sets
         x_train, x_test, y_train, y_test = train_test_split(X,Y, test_size=0.2)
         
         # Feature scaling
         #* We need to do this because our values in the dataset are in different scales, some in tens others in thousands
-        sc = StandardScaler()
-        x_train = sc.fit_transform(x_train)
-        x_test = sc.fit_transform(x_test)
+        # sc = StandardScaler()
+        # x_train = sc.fit_transform(x_train)
+        # x_test = sc.fit_transform(x_test)
+        # 3d scaler
+        # scalers = {}
+        # for i in range(x_train.shape[1]):
+        #     scalers[i] = StandardScaler()
+        #     x_train[:, i, :] = scalers[i].fit_transform(x_train[:, i, :]) 
+
+        # for i in range(x_test.shape[1]):
+        #     x_test[:, i, :] = scalers[i].transform(x_test[:, i, :]) 
         
         #Random Forest Model
         classifier = RandomForestClassifier(n_estimators=20,random_state = 0)
@@ -67,9 +118,9 @@ def SVM():
 
         # Feature scaling
         #* We need to do this because our values in the dataset are in different scales, some in tens others in thousands
-        sc = StandardScaler()
-        x_train = sc.fit_transform(x_train)
-        x_test = sc.fit_transform(x_test)
+        # sc = StandardScaler()
+        # x_train = sc.fit_transform(x_train)
+        # x_test = sc.fit_transform(x_test)
         
         #SVM
         model = svm.SVC()
@@ -96,9 +147,9 @@ def knn():
 
         # Feature scaling
         #* We need to do this because our values in the dataset are in different scales, some in tens others in thousands
-        sc = StandardScaler()
-        x_train = sc.fit_transform(x_train)
-        x_test = sc.fit_transform(x_test)
+        # sc = StandardScaler()
+        # x_train = sc.fit_transform(x_train)
+        # x_test = sc.fit_transform(x_test)
         
         #KNN
         #TODO Play around with the amount fo neighbors
@@ -184,5 +235,7 @@ if __name__ == '__main__':
     print(knn())
     print(NN())
     print(gaussNB())
-    # print(f"X: {X[:5]}")
-    # print(f"Y: {Y[:5]}")
+#     # print(f"X: {X[:2]}")
+#     # print(f"Y: {Y[:2]}")
+#     # print(f"Thingy: {thingy[:3]}")
+    
