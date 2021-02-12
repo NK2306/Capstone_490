@@ -15,64 +15,75 @@ import os
 import math
 
 # dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\Merged.csv'
-path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged'
-
-files = []
-# r=root, d=directories, f = files
-for r, d, f in os.walk(path):
-    for file in f:
-        if '.csv' in file:
-            files.append(os.path.join(r, file))
-    
-print(files)
-# print(os.path.join(dirpath, name))
-
+extract_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data'
+read_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data\All_Data\All_Data.csv'
 rows_avg = 10
 hold = pd.DataFrame()
+files = []
+all_data_file_exists = False
 
+try:
+    f = open(read_path)
+    all_data_file_exists = True
+    f.close()
+except FileNotFoundError:
+    print("Could not open")
+         
+print(all_data_file_exists)
 # Reading the information from the csv file into the dataset
-for i in range(len(files)):
-    df = pd.read_csv(files[i])
+if all_data_file_exists:
+    hold = pd.read_csv(read_path)
+else:
+    # r=root, d=directories, f = files
+    for r, d, f in os.walk(extract_path):
+        for file in f:
+            if '.csv' in file:
+                files.append(os.path.join(r, file))
+    for i in range(len(files)):
+        df = pd.read_csv(files[i])
 
-    # print(df.head())
-    for col in df.columns:
-        if 'Source.Name' in col or 'Time' in col or 'S1D1'in col or 'S13D13' in col:
-            if 'HbT' in col:
+        # print(df.head())
+        for col in df.columns:
+            if 'Time' in col or 'S1D1'in col or 'S13D13' in col:
+                if 'HbT' in col:
+                    del df[f'{col}']
+                else:
+                    continue
+            else:
                 del df[f'{col}']
+            
+        rows = df.shape[0]
+        columns = df.shape[1]
+        # print(df.head())
+
+        # Prepearing the Data for training
+        #* Data must be divided into attributes and labels
+        X = df.iloc[:,:].to_numpy()
+        Y=[]
+        for _ in range(len(X)):
+            if '0-back' in files[i]:
+                Y.extend([0])
+            elif '2-back' in files[i]:
+                Y.extend([2])
+            elif '3-back' in files[i]:
+                Y.extend([3])
             else:
                 continue
-        else:
-            del df[f'{col}']
-        
-    rows = df.shape[0]
-    columns = df.shape[1]
-    # print(df.head())
 
-    # Prepearing the Data for training
-    #* Data must be divided into attributes and labels
-    X = df.iloc[:,:].to_numpy()
-    Y=[]
-    for _ in range(len(X)):
-        if '0-back' in files[i]:
-            Y.extend([0])
-        elif '2-back' in files[i]:
-            Y.extend([2])
-        elif '3-back' in files[i]:
-            Y.extend([3])
-        else:
-            continue
-
-    # # Make an average of N rows
-    for j in range(0,len(X),rows_avg):
-        df2 = pd.DataFrame([np.mean(X[j:j+5,1:], axis=0)])
-        df2.insert(0,'Y',Y[j])
-        hold = hold.append(df2, ignore_index = True)
-        
-        # if count == 5:
-        #     break
-        # count +=1
+        # # Make an average of N rows
+        for j in range(0,len(X),rows_avg):
+            df2 = pd.DataFrame([np.mean(X[j:j+5,1:], axis=0)])
+            df2.insert(0,'Y',Y[j])
+            hold = hold.append(df2, ignore_index = True)
+            
+            # if count == 5:
+            #     break
+            # count +=1
+    
+    hold.to_csv(read_path, index=False)
 
 print(hold.head())
+print(hold.shape)
 
 X = hold.iloc[:,1:].to_numpy()
 Y = hold.iloc[:,0].to_numpy()
@@ -80,9 +91,9 @@ print(X[:2])
 print(Y[:2])
 
 
-le = preprocessing.LabelEncoder()
-le.fit(hold['Y'])
-Y = le.fit_transform(Y)
+# le = preprocessing.LabelEncoder()
+# le.fit(hold['Y'])
+# Y = le.fit_transform(Y)
 
 count = 10
 
@@ -247,7 +258,7 @@ if __name__ == '__main__':
     print(random_forest())
     print(SVM())
     print(knn())
-    print(NN())
+#     print(NN())
     print(gaussNB())
     # print(f"X: {X[:2]}")
     # print(f"Y: {Y[:2]}")
