@@ -11,60 +11,74 @@ from sklearn.naive_bayes import GaussianNB # pylint: disable=import-error
 from sklearn.metrics import accuracy_score # pylint: disable=import-error
 from sklearn.utils import shuffle # pylint: disable=import-error
 import numpy as np
+import os
 import math
 
-dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\Merged.csv'
+# dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\Merged.csv'
+path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged'
+
+files = []
+# r=root, d=directories, f = files
+for r, d, f in os.walk(path):
+    for file in f:
+        if '.csv' in file:
+            files.append(os.path.join(r, file))
+    
+print(files)
+# print(os.path.join(dirpath, name))
 
 rows_avg = 10
-
-# Reading the information from the csv file into the dataset
-datasets = pd.read_csv(dataset)
-
-# print(datasets.head())
-for col in datasets.columns:
-    if 'Source.Name' in col or 'Time' in col or 'S1D1'in col or 'S13D13' in col:
-        if 'HbT' in col:
-            del datasets[f'{col}']
-        else:
-            continue
-    else:
-        del datasets[f'{col}']
-    
-rows = datasets.shape[0]
-columns = datasets.shape[1]
-
-# print(datasets.shape)
-# print(rows)
-# print(columns)
-
-# print(datasets.head())
-
-# Prepearing the Data for training
-#* Data must be divided into attributes and labels
-X = datasets.iloc[:,1:].to_numpy()
-Y = datasets.iloc[:,0].to_numpy()
-# print(Y.shape)
 hold = pd.DataFrame()
 
-count = 1
+# Reading the information from the csv file into the dataset
+for i in range(len(files)):
+    df = pd.read_csv(files[i])
 
-# # Make an average of N rows
-for i in range(0,len(X),rows_avg):
-    df2 = pd.DataFrame([np.mean(X[i:i+5,1:], axis=0)])
-    df2.insert(0,'Y',Y[i])
-    hold = hold.append(df2, ignore_index = True)
-    
-    # if count == 5:
-    #     break
-    # count +=1
+    # print(df.head())
+    for col in df.columns:
+        if 'Source.Name' in col or 'Time' in col or 'S1D1'in col or 'S13D13' in col:
+            if 'HbT' in col:
+                del df[f'{col}']
+            else:
+                continue
+        else:
+            del df[f'{col}']
+        
+    rows = df.shape[0]
+    columns = df.shape[1]
+    # print(df.head())
 
-# print(hold.head())
+    # Prepearing the Data for training
+    #* Data must be divided into attributes and labels
+    X = df.iloc[:,:].to_numpy()
+    Y=[]
+    for _ in range(len(X)):
+        if '0-back' in files[i]:
+            Y.extend([0])
+        elif '2-back' in files[i]:
+            Y.extend([2])
+        elif '3-back' in files[i]:
+            Y.extend([3])
+        else:
+            continue
+
+    # # Make an average of N rows
+    for j in range(0,len(X),rows_avg):
+        df2 = pd.DataFrame([np.mean(X[j:j+5,1:], axis=0)])
+        df2.insert(0,'Y',Y[j])
+        hold = hold.append(df2, ignore_index = True)
+        
+        # if count == 5:
+        #     break
+        # count +=1
+
+print(hold.head())
+
 X = hold.iloc[:,1:].to_numpy()
 Y = hold.iloc[:,0].to_numpy()
-# print(X[:2])
-# print(Y[:2])
-# print(X.shape)
-# print(Y.shape)
+print(X[:2])
+print(Y[:2])
+
 
 le = preprocessing.LabelEncoder()
 le.fit(hold['Y'])
@@ -235,7 +249,9 @@ if __name__ == '__main__':
     print(knn())
     print(NN())
     print(gaussNB())
-#     # print(f"X: {X[:2]}")
-#     # print(f"Y: {Y[:2]}")
-#     # print(f"Thingy: {thingy[:3]}")
+    # print(f"X: {X[:2]}")
+    # print(f"Y: {Y[:2]}")
+    # print(X.shape)
+    # print(Y.shape)    
+
     
