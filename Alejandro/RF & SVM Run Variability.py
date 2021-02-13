@@ -13,14 +13,19 @@ from sklearn.utils import shuffle # pylint: disable=import-error
 import numpy as np
 import os
 import math
+import winsound
+duration = 5000  # milliseconds
+freq = 740  # Hz
 
 # dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\Merged.csv'
 extract_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data'
 read_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data\All_Data\All_Data.csv'
-rows_avg = 10
+rows_avg = 100
+count = 1
 hold = pd.DataFrame()
 files = []
 all_data_file_exists = False
+select_col = False
 
 try:
     f = open(read_path)
@@ -32,7 +37,27 @@ except FileNotFoundError:
 print(all_data_file_exists)
 # Reading the information from the csv file into the dataset
 if all_data_file_exists:
-    hold = pd.read_csv(read_path)
+    if select_col:
+        h = pd.read_csv(read_path)
+        hold.insert(0,'Y',h['Y'])
+        df = pd.read_csv(r"C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data\VP001-NIRS\0-back_session\data_0-back_session_trial001.csv")
+        col_list = []
+        c = 0
+        for col in df.columns:
+            if 'S1D1'in col or 'S13D13' in col:
+                if 'HbT' in col:
+                    c+=1
+                else:
+                    # c -=1
+                    # print(col)
+                    # print(df.columns[c])
+                    hold.insert(len(hold.columns),df.columns[c],h[f'{c}'])
+                    c +=1
+            else:
+                c+=1
+    else:
+        hold = pd.read_csv(read_path)
+    
 else:
     # r=root, d=directories, f = files
     for r, d, f in os.walk(extract_path):
@@ -43,17 +68,17 @@ else:
         df = pd.read_csv(files[i])
 
         # print(df.head())
-        for col in df.columns:
-            if 'Time' in col or 'S1D1'in col or 'S13D13' in col:
-                if 'HbT' in col:
-                    del df[f'{col}']
-                else:
-                    continue
-            else:
-                del df[f'{col}']
+        # for col in df.columns:
+        #     if 'Time' in col or 'S1D1'in col or 'S13D13' in col:
+        #         if 'HbT' in col:
+        #             del df[f'{col}']
+        #         else:
+        #             continue
+        #     else:
+        #         del df[f'{col}']
             
-        rows = df.shape[0]
-        columns = df.shape[1]
+        # rows = df.shape[0]
+        # columns = df.shape[1]
         # print(df.head())
 
         # Prepearing the Data for training
@@ -72,7 +97,8 @@ else:
 
         # # Make an average of N rows
         for j in range(0,len(X),rows_avg):
-            df2 = pd.DataFrame([np.mean(X[j:j+5,1:], axis=0)])
+            # TODO : Add the title of each column somehow
+            df2 = pd.DataFrame([np.mean(X[j:j+rows_avg,1:], axis=0)])
             df2.insert(0,'Y',Y[j])
             hold = hold.append(df2, ignore_index = True)
             
@@ -80,22 +106,24 @@ else:
             #     break
             # count +=1
     
+    if hold.iloc[2,hold.shape[1]].values == None:
+        del hold.columns[hold.shape[1]]
+    
     hold.to_csv(read_path, index=False)
 
 print(hold.head())
 print(hold.shape)
 
+# hold.shape[1]-1
 X = hold.iloc[:,1:].to_numpy()
 Y = hold.iloc[:,0].to_numpy()
-print(X[:2])
-print(Y[:2])
+# print(X[:2])
+# print(Y[:2])
 
 
 # le = preprocessing.LabelEncoder()
 # le.fit(hold['Y'])
 # Y = le.fit_transform(Y)
-
-count = 10
 
 def random_forest():
     rf_accuracy = 0
@@ -119,7 +147,7 @@ def random_forest():
         #     x_test[:, i, :] = scalers[i].transform(x_test[:, i, :]) 
         
         #Random Forest Model
-        classifier = RandomForestClassifier(n_estimators=20,random_state = 0)
+        classifier = RandomForestClassifier(n_estimators=500,random_state = 0)
         classifier.fit(x_train, y_train)
         y_pred = classifier.predict(x_test)
         rf_accuracy += accuracy_score(y_test, y_pred)
@@ -178,7 +206,7 @@ def knn():
         
         #KNN
         #TODO Play around with the amount fo neighbors
-        model = KNeighborsClassifier(n_neighbors=3)
+        model = KNeighborsClassifier(n_neighbors=5)
         model.fit(x_train, y_train)
         prediction = model.predict(x_test)
         knn_accuracy += accuracy_score(y_test, prediction)
@@ -210,7 +238,7 @@ def NN():
         #TODO Play around with the different settings
         #Use adam for large datasets, and lbfgs for smaller datasets
         
-        model = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(50, 20),max_iter = 1000)
+        model = MLPClassifier(solver='adam', alpha=1e-5, hidden_layer_sizes=(200, 100),max_iter = 1000)
         model.fit(x_train, y_train)
         prediction = model.predict(x_test)
         accuracy += accuracy_score(y_test, prediction)
@@ -258,8 +286,10 @@ if __name__ == '__main__':
     print(random_forest())
     print(SVM())
     print(knn())
-#     print(NN())
+    print(NN())
     print(gaussNB())
+    # Play a sound when the code finishes
+    # winsound.Beep(freq, duration)
     # print(f"X: {X[:2]}")
     # print(f"Y: {Y[:2]}")
     # print(X.shape)
