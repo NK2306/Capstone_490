@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler # pylint: disable=import-error
 from sklearn.naive_bayes import GaussianNB # pylint: disable=import-error
 from sklearn.metrics import accuracy_score # pylint: disable=import-error
 from sklearn.utils import shuffle # pylint: disable=import-error
+from window_slider import Slider
 import numpy as np
 import os
 import math
@@ -18,14 +19,27 @@ duration = 5000  # milliseconds
 freq = 740  # Hz
 
 # dataset = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\TrainingData\Merged\Merged.csv'
-extract_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data'
-read_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data\All_Data\All_Data.csv'
-rows_avg = 100
+# extract_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\NIRS_Data'
+# read_path = r'C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\NIRS_Data\All_Data\All_Data.csv'
+rows_avg = 10
 count = 1
 hold = pd.DataFrame()
 files = []
 all_data_file_exists = False
+# Right now it is changed manually
 select_col = False
+
+dataIS = 'EEG'
+
+# Use this function to enter the type of data you want analyzed
+# call_get_data = False
+# while not call_get_data:
+#     dataIS = input('Enter type of Data (NIRS or EEG): ')
+#     if dataIS == 'NIRS' or dataIS == 'EEG':
+#         call_get_data = True
+        
+extract_path = f'C:\\Users\\owner\\Documents\\GitHub\\Capstone_490\\Alejandro\\{dataIS}_Data'
+read_path = f'C:\\Users\\owner\\Documents\\GitHub\\Capstone_490\\Alejandro\\{dataIS}_Data\\All_Data\\All_Data.csv'
 
 try:
     f = open(read_path)
@@ -33,57 +47,42 @@ try:
     f.close()
 except FileNotFoundError:
     print("Could not open")
-         
+        
 print(all_data_file_exists)
 # Reading the information from the csv file into the dataset
-if all_data_file_exists:
-    if select_col:
-        h = pd.read_csv(read_path)
-        hold.insert(0,'Y',h['Y'])
-        df = pd.read_csv(r"C:\Users\owner\Documents\GitHub\Capstone_490\Alejandro\CSV_Data\VP001-NIRS\0-back_session\data_0-back_session_trial001.csv")
-        col_list = []
-        c = 0
-        for col in df.columns:
-            if 'S1D1'in col or 'S13D13' in col:
-                if 'HbT' in col:
-                    c+=1
-                else:
-                    # c -=1
-                    # print(col)
-                    # print(df.columns[c])
-                    hold.insert(len(hold.columns),df.columns[c],h[f'{c}'])
-                    c +=1
-            else:
-                c+=1
-    else:
-        hold = pd.read_csv(read_path)
-    
-else:
+if not all_data_file_exists:
     # r=root, d=directories, f = files
     for r, d, f in os.walk(extract_path):
         for file in f:
             if '.csv' in file:
                 files.append(os.path.join(r, file))
     for i in range(len(files)):
-        df = pd.read_csv(files[i])
-
-        # print(df.head())
-        # for col in df.columns:
-        #     if 'Time' in col or 'S1D1'in col or 'S13D13' in col:
-        #         if 'HbT' in col:
-        #             del df[f'{col}']
-        #         else:
-        #             continue
-        #     else:
-        #         del df[f'{col}']
-            
-        # rows = df.shape[0]
-        # columns = df.shape[1]
-        # print(df.head())
-
-        # Prepearing the Data for training
+        df = pd.read_csv(files[i])    
         #* Data must be divided into attributes and labels
         X = df.iloc[:,:].to_numpy()
+        
+        #! Remove time -10 to 0
+        #Remove the data from -10 sec to 0 sec
+        # if dataIS =='NIRS':
+        
+        c=0
+        for val in df['Time']:
+            c+=1
+            if val < 0:
+                df  = df[df.index != c]
+        
+        # T = []
+        # c=0
+        # for t in X[0]:
+        #     if c+rows_avg <= len(X[0]):
+        #         if round(t,2) == round(X[0,c+rows_avg],2):
+        #             T.append('')
+        #         else:
+        #             T.append(f'{round(t,2)}-{round(X[0,c+rows_avg],2)}')
+        #     else:
+        #         T.append('')
+        # print(len(T))
+        
         Y=[]
         for _ in range(len(X)):
             if '0-back' in files[i]:
@@ -94,36 +93,66 @@ else:
                 Y.extend([3])
             else:
                 continue
-
-        # # Make an average of N rows
+        
+        # Make an average of N rows
+        # sliding window use: for j in range(0,len(X))
+        # non-sliding average use: for j in range(0,len(X),rows_avg)
         for j in range(0,len(X),rows_avg):
             # TODO : Add the title of each column somehow
             df2 = pd.DataFrame([np.mean(X[j:j+rows_avg,1:], axis=0)])
+            # if len(T) == len(Y):
+            #     df2.insert(0,'Time',T[j])
             df2.insert(0,'Y',Y[j])
             hold = hold.append(df2, ignore_index = True)
-            
-            # if count == 5:
-            #     break
-            # count +=1
+
+    # Removes the NaN from EEG and NIRS
+    if hold.isnull().values.any() and dataIS =='EEG':
+        for i in range(hold.shape[0]):
+            if hold.isna().any(axis=1)[i]:
+                hold  = hold[hold.index != i]
     
-    if hold.iloc[2,hold.shape[1]].values == None:
-        del hold.columns[hold.shape[1]]
+    
+    if np.isnan(hold.iloc[2,hold.shape[1]-1]) and dataIS =='NIRS':
+        print(hold.head())
+        del hold[f'{hold.shape[1]-2}']
+        print('here')
     
     hold.to_csv(read_path, index=False)
+
+# Check if we are restricting our data to just the selected columns
+if select_col:
+    h = pd.read_csv(read_path)
+    hold.insert(0,'Y',h['Y'])
+    df = pd.read_csv(f'C:\\Users\\owner\\Documents\\GitHub\\Capstone_490\\Alejandro\\{dataIS}_Data\\VP001-{dataIS}\\0-back_session\\data_0-back_session_trial001.csv')
+    col_list = []
+    c = 0
+    for col in df.columns:
+        if 'S1D1'in col or 'S13D13' in col:
+            if 'HbT' in col:
+                c+=1
+            else:
+                hold.insert(len(hold.columns),df.columns[c],h[f'{c}'])
+                c +=1
+        else:
+            c+=1
+else:
+    hold = pd.read_csv(read_path)
+
+# Removes the NaN from NIRS
+if np.isnan(hold.iloc[2,hold.shape[1]-1]):
+    # print(hold.head())
+    del hold[f'{hold.shape[1]-2}']
+    print('here')
 
 print(hold.head())
 print(hold.shape)
 
 # hold.shape[1]-1
-X = hold.iloc[:,1:].to_numpy()
+X = hold.iloc[:,2:].to_numpy()
 Y = hold.iloc[:,0].to_numpy()
 # print(X[:2])
 # print(Y[:2])
 
-
-# le = preprocessing.LabelEncoder()
-# le.fit(hold['Y'])
-# Y = le.fit_transform(Y)
 
 def random_forest():
     rf_accuracy = 0
@@ -282,12 +311,12 @@ def gaussNB():
     
     return (string)
     
-if __name__ == '__main__':
-    print(random_forest())
-    print(SVM())
-    print(knn())
-    print(NN())
-    print(gaussNB())
+# if __name__ == '__main__':
+#     print(random_forest())
+#     print(SVM())
+#     print(knn())
+#     print(NN())
+#     print(gaussNB())
     # Play a sound when the code finishes
     # winsound.Beep(freq, duration)
     # print(f"X: {X[:2]}")
