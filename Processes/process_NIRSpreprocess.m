@@ -1,4 +1,4 @@
-function varargout = process_nst_detect_bad( varargin )
+function varargout = process_NIRSpreprocess( varargin )
 
 % @=============================================================================
 % This function is part of the Brainstorm software:
@@ -29,12 +29,12 @@ end
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
     %TOCHECK: how do we limit the input file types (only NIRS data)?
-    sProcess.Comment     = 'Detect bad channels';
+    sProcess.Comment     = 'NIRS preprocess for Capstone490';
     sProcess.FileTag     = '';
     sProcess.Category    = 'File';
-    sProcess.SubGroup    = {'NIRS', 'Pre-process'};
-    sProcess.Index       = 1301; %0: not shown, >0: defines place in the list of processes
-    sProcess.Description = 'http://neuroimage.usc.edu/brainstorm/Tutorials/NIRSFingerTapping#Bad_channel_tagging';
+    sProcess.SubGroup    = 'Capstone';
+    sProcess.Index       = 4000; %0: not shown, >0: defines place in the list of processes
+    sProcess.Description = 'NIRS preprocessing for Capstone 490 project';
     sProcess.isSeparator = 0; 
     
     % Definition of the input accepted by this process
@@ -44,6 +44,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.nInputs     = 1;
     sProcess.nMinFiles   = 1;
     
+    %{
     % Definition of the options
     sProcess.options.text1.Comment   = '<b>Data based detection</b>'; 
     sProcess.options.text1.Type    = 'label';
@@ -112,7 +113,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.option_keep_unpaired.Comment = 'Keep unpaired channels';
     sProcess.options.option_keep_unpaired.Type    = 'checkbox';
     sProcess.options.option_keep_unpaired.Value   = 0;
-    
+    %}
 
 end
 
