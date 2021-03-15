@@ -13,21 +13,16 @@ from sklearn.utils import shuffle # pylint: disable=import-error
 import numpy as np
 import os
 import math
+from itertools import islice
 
-def exec_Code(dataIS, row_name):
+def exec_Code(dataIS, row_name, window_analysis):
     #Constants
     rows_avg = 10
-    count = 10
+    count = 1
     files = []
     all_data_file_exists = False
-    rf_accuracy = 0
-    svm_accuracy = 0
-    knn_accuracy = 0
-    nn_accuracy = 0
-    gauss_accuracy = 0
-    consensus_accuracy = 0
-    string = ''
     select_col = False
+    window_size = 5
     
     if row_name != '':
         select_col = True
@@ -50,6 +45,31 @@ def exec_Code(dataIS, row_name):
         scrape_files(extract_path, read_path, rows_avg, dataIS)
 
     # Check if we are restricting our data to just the selected columns
+    hold = check_columns(extract_path,read_path, select_col, dataIS)
+    
+    #* Sliding window analysis to get accuracy in that time frame
+    #TODO Does not work yet
+    # if window_analysis:
+    #     window(window_size, read_path, select_col, count)
+    
+    # Removes the NaN from NIRS
+    if np.isnan(hold.iloc[2,hold.shape[1]-1]) and dataIS =='NIRS':
+        # print(hold.head())
+        del hold[f'{hold.shape[1]-2}']
+        #print('here')
+
+    print(f"Data type: {dataIS}")
+    print(f"Restrict Columns: {select_col}\n")
+    print("------------------------First five rows of Dataset--------------------------")
+    print(hold.head())
+    print()
+    X = hold.iloc[:,1:].to_numpy()
+    Y = hold.iloc[:,0].to_numpy()
+    print(X)
+    print(Y)
+    run_models(count, X, Y, select_col)
+    
+def check_columns(extract_path,read_path, select_col, dataIS,):
     if select_col:
         h = pd.read_csv(read_path)
         hold.insert(0,'Y',h['Y'])
@@ -81,23 +101,33 @@ def exec_Code(dataIS, row_name):
                 c +=1      
     else:
         hold = pd.read_csv(read_path)
+    
+    return hold
 
-    # Removes the NaN from NIRS
-    if np.isnan(hold.iloc[2,hold.shape[1]-1]) and dataIS =='NIRS':
-        # print(hold.head())
-        del hold[f'{hold.shape[1]-2}']
-        #print('here')
-
-    print(f"Data type: {dataIS}")
-    print(f"Restrict Columns: {select_col}\n")
-    print("------------------------First five rows of Dataset--------------------------")
-    print(hold.head())
-    print()
-    X = hold.iloc[:,2:].to_numpy()
-    Y = hold.iloc[:,0].to_numpy()
-    # run_models(count, X, Y)
+def window(window_size, read_path, select_col, count):
+    rf_accuracy = []
+    svm_accuracy = []
+    knn_accuracy = []
+    nn_accuracy = []
+    gauss_accuracy = []
+    consensus_accuracy = []
+    acc_values = []
     
     
+    h = pd.read_csv(read_path,nrows = window_size)
+    
+    for i in range(h.shape[0]):
+        hold = pd.read_csv(read_path,skiprows = i,nrows = window_size)
+        hold.columns = h.columns
+        X = hold.iloc[:,1:].to_numpy()
+        Y = hold.iloc[:,0].to_numpy()
+        #! Cannot have only one type of data analyzed to make the prediction.
+        #! If we restrict the rows then we need proper representation on the time axis from all the types of data gathered [0,2,3]
+        run_models(count, X, Y, select_col)
+        # print(acc_values[1])
+        
+        
+      
 def scrape_files(extract_path,read_path, rows_avg, dataIS):
     hold = pd.DataFrame()
     files = []
@@ -158,7 +188,16 @@ def scrape_files(extract_path,read_path, rows_avg, dataIS):
     
     hold.to_csv(read_path, index=False)
     
-def run_models(numOfIter, X, Y):
+def run_models(numOfIter, X, Y, select_col):
+    
+    rf_accuracy = 0
+    svm_accuracy = 0
+    knn_accuracy = 0
+    nn_accuracy = 0
+    gauss_accuracy = 0
+    consensus_accuracy = 0
+    string = ''
+    
     for _ in range(numOfIter): 
         # Dividing the data into training and testing sets
         x_train, x_test, y_train, y_test = train_test_split(X,Y, test_size=0.2)
@@ -247,43 +286,45 @@ def run_models(numOfIter, X, Y):
                 
         consensus_accuracy += accuracy_score(y_test,consensus_prediction)
 
-    rf_accuracy = rf_accuracy/numOfIter
+    rf_accuracy = (rf_accuracy/numOfIter)*100
 
     string +=("--------------------------------Evaluating Random Forest--------------------------------\n")
-    string +=(f'Accuracy: {rf_accuracy*100} %\n')
+    string +=(f'Accuracy: {rf_accuracy} %\n')
     string +=(f'y_test: {y_test[:4]}\nPrediction: {rf_prediction[:4]}\n')
 
-    svm_accuracy = svm_accuracy/numOfIter
+    svm_accuracy = (svm_accuracy/numOfIter)*100
     
     string +=("--------------------------------Evaluating SVM--------------------------------\n")
-    string +=(f'Accuracy: {svm_accuracy*100} %\n')
+    string +=(f'Accuracy: {svm_accuracy} %\n')
     string +=(f'y_test: {y_test[:4]}\nPrediction: {svm_prediction[:4]}\n')
 
-    knn_accuracy = knn_accuracy/numOfIter
+    knn_accuracy = (knn_accuracy/numOfIter)*100
 
     string +=("--------------------------------Evaluating KNN--------------------------------\n")
-    string +=(f'Accuracy: {knn_accuracy*100} %\n')
+    string +=(f'Accuracy: {knn_accuracy} %\n')
     string +=(f'y_test: {y_test[:4]}\nPrediction: {knn_prediction[:4]}\n')    
     
-    nn_accuracy = nn_accuracy/numOfIter
+    nn_accuracy = (nn_accuracy/numOfIter)*100
 
     string +=("--------------------------------Evaluating Neural Network--------------------------------\n")
-    string +=(f'Accuracy: {nn_accuracy*100} %\n')
+    string +=(f'Accuracy: {nn_accuracy} %\n')
     string +=(f'y_test: {y_test[:4]}\nPrediction: {nn_prediction[:4]}\n')
     
-    gauss_accuracy = gauss_accuracy/numOfIter
+    gauss_accuracy = (gauss_accuracy/numOfIter)*100
 
     string +=("--------------------------------Evaluating Naive Bayes--------------------------------\n")
-    string +=(f'Accuracy: {gauss_accuracy*100} %\n')
+    string +=(f'Accuracy: {gauss_accuracy} %\n')
     string +=(f'y_test: {y_test[:4]}\nPrediction: {gauss_prediction[:4]}\n')
     
-    consensus_accuracy = consensus_accuracy/numOfIter
+    consensus_accuracy = (consensus_accuracy/numOfIter)*100
 
     string +=("--------------------------------Evaluating Consensus Accuracy--------------------------------\n")
-    string +=(f'Accuracy: {consensus_accuracy*100} %\n')
+    string +=(f'Accuracy: {consensus_accuracy} %\n')
     string +=(f'y_test: {y_test[:4]}\nPrediction: {consensus_prediction[:4]}\n')
     
     print(string)
+    
+    return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy]
 
 if __name__ == '__main__':
     # x is data type (EEG or NIRS), y is boolean (restrict data or not)
@@ -292,6 +333,12 @@ if __name__ == '__main__':
     # rows_names = []
     x = 'EEG'
     y = ''
+    z = 'True'
+    
+    if z == 'True':
+        window_analysis = True
+    elif z == 'False':
+        window_analysis = False
     
     print(y)
     
@@ -312,4 +359,4 @@ if __name__ == '__main__':
     
     all_data_file_exists = False
         
-    sys.stdout.write(str(exec_Code(x, rows_names)))
+    sys.stdout.write(str(exec_Code(x, rows_names, window_analysis)))
