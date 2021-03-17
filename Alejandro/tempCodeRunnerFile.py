@@ -1,2 +1,10 @@
-    if window_analysis:
-        window(window_size, read_path, select_col, count)
+            df.insert(0,'Random Forest',rf_accuracy)
+            df.insert(1,'SVM',svm_accuracy)
+            df.insert(2,'KNN',knn_accuracy)
+            # df.insert(3,'NN',nn_accuracy)
+            df.insert(3,'Gauss',gauss_accuracy)
+            # df.insert(5,'Consensus',consensus_accuracy)
+            df.insert(4,'Time', time_frame)
+            lines = df.plot.line(x='Time')
+            lines.set_title(f'Sliding window Performance Participant {participant} NIRS')
+            lines.set_ylabel('Accuracy %')
