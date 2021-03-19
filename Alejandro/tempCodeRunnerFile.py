@@ -1,5 +1,1 @@
-        # os.remove("Pickled_models\\rf_model.pkl")
-        # os.remove("Pickled_models\\svm_model.pkl")
-        # os.remove("Pickled_models\\knn_model.pkl")
-        # os.remove("Pickled_models\\nn_model.pkl")
-        # os.remove("Pickled_models\\gauss_model.pkl")
+file
