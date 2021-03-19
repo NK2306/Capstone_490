@@ -57,8 +57,8 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant):
         for file in f:
             if '.csv' in file and 'All_Data' not in file:
                 files.append(os.path.join(r, file))
-    # for i in range(len(files)):
-    remove_negative_time(dataIS,files[0])
+    for i in range(len(files)):
+        remove_negative_time(dataIS,files[i])
     
     # Reading the information from the csv file into the dataset
     if not all_data_file_exists:
@@ -363,13 +363,13 @@ def window(window_size, extract_path, last_participant,dataIS):
         lines.set_title(f'Sliding Window Average Performance NIRS')
         lines.set_ylabel('Accuracy %')
         # print(time_frame)
-        for t in range(len(time_frame)):
-            if -0.1 <= float(time_frame[t]) <= 0.1:
-                plt.axvline(x=t)
-                break
+        # for t in range(len(time_frame)):
+        #     if -0.1 <= float(time_frame[t]) <= 0.1:
+        #         plt.axvline(x=t)
+        #         break
     
-    # plt.show()
-    plt.savefig(f'Sliding Window Average Performance NIRS.png')   
+        # plt.show()
+        plt.savefig(f'Sliding Window Average Performance NIRS.png')   
 
 def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1):
     print('train')
@@ -1147,11 +1147,7 @@ def cross_validate(numOfIter, X, Y, select_col):
     return [rf_accuracy, svm_accuracy, knn_accuracy,gauss_accuracy]
 
 def remove_negative_time(dataIS,files):
-    # if dataIS == 'EEG':
-    #     print('Haven\'t done it yet')
-        
-    # elif dataIS == 'NIRS':
-    print(files)
+    # print(files)
     df = pd.read_csv(files)
     # print(df.columns)
     for i in range(df.shape[0]):
@@ -1159,8 +1155,16 @@ def remove_negative_time(dataIS,files):
             # print(df['Time'][i])
             df = df.drop([i], axis=0)
     
-    print(df.head())
-
+    if 'Unnamed' in df.columns[-1] and dataIS =='NIRS':
+        del df['Unnamed: 109']
+    # print(df)
+    
+    if df.isnull().values.any() and dataIS =='EEG':
+        for i in range(df.shape[0]):
+            if df.isna().any(axis=1)[i]:
+                df  = df[df.index != i]
+                
+    df.to_csv(files, index=False)
 
 if __name__ == '__main__':
     # x is data type (EEG or NIRS), y is boolean (restrict data or not)
