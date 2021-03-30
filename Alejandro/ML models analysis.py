@@ -36,6 +36,7 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_n
     all_data_file_exists = False
     select_col = False
     window_size = 100
+    percent_train = 0
     # Boolean
     train_test_split_participants = tts_participant
     
@@ -77,16 +78,18 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_n
                 if '.csv' in file and 'All_Data' not in file:
                     files.append(os.path.join(r, file))
         
-        last_particip = f'{files[-1][files[-1].find("VP0")+3]}{files[-1][files[-1].find("VP0")+4]}'
+        last_train_particip = f'{files[-1][files[-1].find("VP0")+3]}{files[-1][files[-1].find("VP0")+4]}'
         
-        if just_do = 'train':
+        if just_do == 'train':
             acc_val = train_models(extract_path, dataIS, last_train_particip)
         
-        if just_do = 'test':
+        if just_do == 'test':
             first_test_participant = last_train_particip
             acc_val = test_models(extract_path,dataIS,first_test_participant)
-    elif just_do = '':
+    elif just_do == '':
         #calc % put in by user
+        percent_train = 0
+        
         
     #* Sliding window analysis to get accuracy in that time frame
     if window_analysis:
@@ -1007,8 +1010,16 @@ def pickle_model_train(X,Y):
         pickle.dump(SGD_model, file)
 
 def partial_fit_other_models(X,Y):
+    x_train = X
+    y_train = Y
+    
+    #Pre-preprocessing
+    #* StandardScaler is ESSENTIAL for NN
+    sc = StandardScaler()
+    x_train = sc.fit_transform(x_train)
+    x_train,y_train = shuffle(x_train,y_train)
+    
     # Random Forest Model
-
     rf_model = RandomForestClassifier(n_estimators=250, max_features='auto',min_samples_leaf=25,n_jobs=-1,oob_score = True)
     rf_model.fit(x_train, y_train)
     
