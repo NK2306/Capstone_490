@@ -1,7 +1,9 @@
-myDataDir = '/NAS/home/kh_guy/Capstone/Brainstorm/brainstorm_db/shin_worload/data';
-n_subject = 26;
-n_trial = 9;
-tasks = {'0-back_session', '2-back_session','3-back_session'};
+function Get_group_avg(myDataDir, n_subject, n_trial, tasks)
+
+%myDataDir = '/NAS/home/kh_guy/Capstone/Brainstorm/brainstorm_db/shin_worload/data';
+%n_subject = 26;
+%n_trial = 9;
+%tasks = {'0-back_session', '2-back_session','3-back_session'};
 
 for i_task = tasks
         sFiles = {};
