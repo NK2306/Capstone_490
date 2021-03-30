@@ -81,53 +81,34 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant):
     elif train_test_split_participants:
         print("Train test split inter-participants")
         # Train the model with the first 20 participants
-        if dataIS == "EEG":
-            #60%
-            for participant in range(1,4):
-                if participant<10:
-                    participant = f'0{participant}'
-                    # print(participant)
-                    acc_val = train_models(extract_path, participant,dataIS)
-                    print("Participant: ", participant)
-                    print(acc_val[-1])
-                else:
-                    acc_val = train_models(extract_path, participant,dataIS)
-                    print("Participant: ", participant)
-                    print(acc_val[-1])
-            
-            #40%
-            for participant in range(4,6):  
-                # Test the model witht the last 2 participants
-                if participant <10:
-                    participant = f'0{participant}'
-                    acc_val = test_models(extract_path, participant,select_col,dataIS)
-                    print("Participant: ", participant)
-                    print(acc_val[-1])
-                else:
-                    acc_val = test_models(extract_path, participant,select_col,dataIS)
-                    print("Participant: ", participant)
-                    print(acc_val[-1])
-       
-        elif dataIS == "NIRS":
-            
-            last_train_particip = 21
-            acc_val = train_models(extract_path, dataIS, last_train_particip)
-            # print(acc_val[-1])
-                
+        # if dataIS == "EEG":
+        #     last_train_particip = 21
+        #     # acc_val = train_models(extract_path, dataIS, last_train_particip)
+        #     # print(acc_val[-1])
     
-            # Test the model witht the last 6 participants
-            first_test_participant = last_train_particip
-            acc_val = test_models(extract_path,dataIS,first_test_participant)
-            # print(acc_val[-1])
+        #     # Test the model witht the last 6 participants
+        #     first_test_participant = last_train_particip
+        #     acc_val = test_models(extract_path,dataIS,first_test_participant)
+       
+        # elif dataIS == "NIRS":
             
-            #! Remove later
-            # Reset values
-            os.remove("Pickled_models\\rf_model.pkl")
-            os.remove("Pickled_models\\svm_model.pkl")
-            os.remove("Pickled_models\\knn_model.pkl")
-            os.remove("Pickled_models\\nn_model.pkl")
-            os.remove("Pickled_models\\gauss_model.pkl")
-            os.remove("Pickled_models\\SGD_model.pkl")
+        last_train_particip = 21
+        acc_val = train_models(extract_path, dataIS, last_train_particip)
+        # print(acc_val[-1])
+
+        # Test the model witht the last 6 participants
+        first_test_participant = last_train_particip
+        acc_val = test_models(extract_path,dataIS,first_test_participant)
+        # print(acc_val[-1])
+        
+        #! Remove later
+        # Reset values
+        os.remove("Pickled_models\\rf_model.pkl")
+        os.remove("Pickled_models\\svm_model.pkl")
+        os.remove("Pickled_models\\knn_model.pkl")
+        os.remove("Pickled_models\\nn_model.pkl")
+        os.remove("Pickled_models\\gauss_model.pkl")
+        os.remove("Pickled_models\\SGD_model.pkl")
                 
     else:
         
@@ -413,35 +394,261 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
     
     df = pd.DataFrame()
     if dataIS =='EEG':
-        h = pd.read_csv(f"{extract_path}\\ERP_VP001_0-back.csv")
+        files = []
+        # r=root, d=directories, f = files
+        for r, d, f in os.walk(extract_path):
+            for file in f:
+                if 'All_Data' not in file and '.csv' in file:
+                # if 'average' in file and '.csv' in file:
+                    files.append(os.path.join(r, file))
+        
+        partial_fit_df = pd.DataFrame()
+        hold = pd.DataFrame()
+        for i in range(len(files)):
             
-        df_0_back = pd.read_csv(f"{extract_path}\\ERP_VP0{participant}_0-back.csv")
-        Y_0_back = [0]*df_0_back.shape[0]
-        df_0_back.columns = h.columns
-        df_0_back.insert(0,'Y',Y_0_back)
-        
-        df_2_back = pd.read_csv(f"{extract_path}\\ERP_VP0{participant}_2-back.csv")
-        Y_2_back = [2]*df_2_back.shape[0]
-        df_2_back.columns = h.columns
-        df_2_back.insert(0,'Y',Y_2_back)
+            this_participant = f'{files[i][files[i].find("VP0")+3]}{files[i][files[i].find("VP0")+4]}'
+            if i+1 != len(files):
+                next_participant = f'{files[i+1][files[i+1].find("VP0")+3]}{files[i+1][files[i+1].find("VP0")+4]}'
+            elif i+1 == len(files):
+                next_participant = ''
+            else:
+                print("We have an issue")
+            
+            #if this_participant == to next_participant then collect the data
+            if this_participant == next_participant:
+                if  'trial001' in files[i]:
+                    continue
+                
+                if f'VP0{this_participant}' in files[i] and '0back' in files[i]:
+                    # print('0-back')
+                    if window_size != 0 and jump != -1:
+                        df_0_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                    else:
+                        df_0_back = pd.read_csv(files[i])
+
+                    if 'Unnamed' in df_0_back.columns[-1]:
+                        del df_0_back[f'{df_0_back.columns[-1]}'] 
+                    
+                    df_0_back = df_0_back.T
+                    
+                    # Removes the NaN from EEG
+                    if df_0_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_0_back.shape[0]):
+                            if df_0_back.isna().any(axis=1)[i]:
+                                df_0_back  = df_0_back[df_0_back.index != i]
+                    
+                    # print(df_0_back)
+                    
+                    # print(df_0_back['Time'][0])
+                    if window_size != 0 and jump != -1:
+                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame()
+                        df_0_back = df_0_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for j in range(df_0_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_0_back.iloc[j], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_0_back = df2
+                    
+                    # print(df_0_back)
+                    
+                    Y_0_back = [0]*df_0_back.shape[0]
+                    # df_0_back.columns = h.columns
+                    df_0_back.insert(0,'Y',Y_0_back)
+                    
+                    hold = hold.append(df_0_back, ignore_index = True)
+                    
+                elif f'VP0{this_participant}' in files[i] and '2back' in files[i]:
+                    # print('2-back')
+                    if window_size != 0 and jump != -1:
+                        df_2_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
                         
-        df_3_back = pd.read_csv(f"{extract_path}\\ERP_VP0{participant}_3-back.csv")
-        Y_3_back = [3]*df_3_back.shape[0]
-        df_3_back.columns = h.columns
-        df_3_back.insert(0,'Y',Y_3_back)
-        
-        hold = df_0_back.copy()
-        hold = hold.append(df_2_back, ignore_index = True)
-        hold = hold.append(df_3_back, ignore_index = True)
-        
-        # Removes the NaN from EEG and NIRS
-        if hold.isnull().values.any() and dataIS =='EEG':
-            for i in range(hold.shape[0]):
-                if hold.isna().any(axis=1)[i]:
-                    hold  = hold[hold.index != i]
-    
-        X = hold.iloc[:,2:].to_numpy()
-        Y = hold.iloc[:,0].to_numpy()
+                    else:
+                        df_2_back = pd.read_csv(files[i])
+                
+                    if 'Unnamed' in df_2_back.columns[-1]:
+                        del df_2_back[f'{df_2_back.columns[-1]}'] 
+                    
+                    df_2_back = df_2_back.T
+
+                    # Removes the NaN from EEG 
+                    if df_2_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_2_back.shape[0]):
+                            if df_2_back.isna().any(axis=1)[i]:
+                                df_2_back  = df_2_back[df_2_back.index != i]
+                    
+                    if window_size != 0 and jump != -1:
+                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame()
+                        df_2_back = df_2_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_2_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_2_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_2_back = df2
+                    
+                    Y_2_back = [2]*df_2_back.shape[0]
+                    # df_2_back.columns = h.columns
+                    df_2_back.insert(0,'Y',Y_2_back)
+                    
+                    hold = hold.append(df_2_back, ignore_index = True)
+                
+            #if this_participant != to next_participant then analyze the data
+            elif next_participant != f'{last_participant}':
+                if f'VP0{this_participant}' in files[i] and '3back' in files[i]:
+                    # print("3-back")
+                    if window_size != 0 and jump != -1:
+                        df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                        # print("here1")
+                    else:
+                        df_3_back = pd.read_csv(files[i])
+                        # print('Why we here?')
+                    
+                    if 'Unnamed' in df_3_back.columns[-1]:
+                        del df_3_back[f'{df_3_back.columns[-1]}'] 
+                    
+                    df_3_back = df_3_back.T
+                    
+                    # Removes the NaN from EEG 
+                    if df_3_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_3_back.shape[0]):
+                            if df_3_back.isna().any(axis=1)[i]:
+                                df_3_back  = df_3_back[df_3_back.index != i]
+                    
+                    if window_size != 0 and jump != -1:
+                        # print("here2")
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
+                        df_3_back = df_3_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_3_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_3_back = df2
+                    
+                    Y_3_back = [3]*df_3_back.shape[0]
+                    # df_3_back.columns = h.columns
+                    df_3_back.insert(0,'Y',Y_3_back)
+                    
+                    hold = hold.append(df_3_back, ignore_index = True)
+                
+                print('This participant:',this_participant)
+                
+                if row_name != '':
+                    hold = check_columns(extract_path,hold, row_name, dataIS)
+                
+                # Removes the NaN from EEG 
+                if hold.isnull().values.any() and dataIS =='EEG':
+                    for i in range(hold.shape[0]):
+                        if hold.isna().any(axis=1)[i]:
+                            hold  = hold[hold.index != i]
+                print(hold)
+                
+                X = hold.iloc[:,1:].to_numpy()
+                Y = hold.iloc[:,0].to_numpy()
+                acc_val = pickle_model_train(X,Y)
+                
+                # Build partial_fit dataframe
+                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                
+                #reseting hold
+                hold = pd.DataFrame()
+                
+            #last_participant reached
+            else:
+                if f'VP0{this_participant}' in files[i] and '3back' in files[i]:
+                    if window_size != 0 and jump != -1:
+                        df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                    else:
+                        df_3_back = pd.read_csv(files[i])
+                    
+                    if 'Unnamed' in df_3_back.columns[-1]:
+                        del df_3_back[f'{df_3_back.columns[-1]}'] 
+                    
+                    df_3_back = df_3_back.T
+                    
+                    # Removes the NaN from EEG 
+                    if df_3_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_3_back.shape[0]):
+                            if df_3_back.isna().any(axis=1)[i]:
+                                df_3_back  = df_3_back[df_3_back.index != i]
+                    
+                    if window_size != 0 and jump != -1:
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
+                        df_3_back = df_3_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_3_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_3_back = df2
+                    
+                    Y_3_back = [3]*df_3_back.shape[0]
+                    # df_3_back.columns = h.columns
+                    df_3_back.insert(0,'Y',Y_3_back)
+                    
+                    hold = hold.append(df_3_back, ignore_index = True)
+                
+                print('Last Participant:', this_participant)
+                # print(hold.head())
+                    
+                if row_name != '':
+                    hold = check_columns(extract_path,hold, row_name, dataIS)
+                
+                if hold.isnull().values.any() and dataIS =='EEG':
+                    for i in range(hold.shape[0]):
+                        if hold.isna().any(axis=1)[i]:
+                            hold  = hold[hold.index != i]
+                
+                X = hold.iloc[:,1:].to_numpy()
+                Y = hold.iloc[:,0].to_numpy()
+                pickle_model_train(X,Y)
+                
+                # For last participant partial fit remaining models
+                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                X = partial_fit_df.iloc[:,1:].to_numpy()
+                Y = partial_fit_df.iloc[:,0].to_numpy()
+                partial_fit_other_models(X,Y)
+                
+                #reseting hold
+                hold = pd.DataFrame()
+                break
     
     elif dataIS == "NIRS":
         files = []
@@ -607,6 +814,9 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 Y = hold.iloc[:,0].to_numpy()
                 acc_val = pickle_model_train(X,Y)
                 
+                # Build partial_fit dataframe
+                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                
                 #reseting hold
                 hold = pd.DataFrame()
                 
@@ -656,6 +866,12 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 Y = hold.iloc[:,0].to_numpy()
                 acc_val = pickle_model_train(X,Y)
                 
+                # For last participant partial fit remaining models
+                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                X = partial_fit_df.iloc[:,1:].to_numpy()
+                Y = partial_fit_df.iloc[:,0].to_numpy()
+                partial_fit_other_models(X,Y)
+                
                 #reseting hold
                 hold = pd.DataFrame()
                 break
@@ -674,83 +890,7 @@ def pickle_model_train(X,Y):
     sc = StandardScaler()
     x_train = sc.fit_transform(x_train)
     x_train,y_train = shuffle(x_train,y_train)
-    
-    # Random Forest Model
-    try:
-        f = open("Pickled_models\\rf_model.pkl")
-        model_exists = True
-        f.close()
-    except FileNotFoundError:
-        print("Could not open")
-    
-    if model_exists:
-        pkl_filename = "Pickled_models\\rf_model.pkl"
-        with open(pkl_filename, 'rb') as file:
-            rf_model = pickle.load(file)
-            rf_model.fit(x_train, y_train)
-    else:
-        rf_model = RandomForestClassifier(n_estimators=250, max_features='auto',min_samples_leaf=25,n_jobs=-1,oob_score = True)
-        rf_model.fit(x_train, y_train)
         
-        # params = {'max_features': ['auto', 'sqrt', 'log2', 'None'],
-        #         'min_samples_leaf': list(range(1,50,5)),
-        #         'oob_score': ['True', 'False'],
-        #         'n_estimators': [150,200,250,300,400,500]
-        #         }
-
-        # rf_model = GridSearchCV(RandomForestClassifier(n_jobs=-1), param_grid=params, n_jobs=-1,cv=5, scoring='accuracy')
-        # rf_model.partial_fit(x_train, y_train)
-    
-    # SVM
-    model_exists = False
-    try:
-        f = open("Pickled_models\\svm_model.pkl")
-        model_exists = True
-        f.close()
-    except FileNotFoundError:
-        print("Could not open")
-    
-    if model_exists:
-        pkl_filename = "Pickled_models\\svm_model.pkl"
-        # Load from file
-        with open(pkl_filename, 'rb') as file:
-            svm_model = pickle.load(file)
-            svm_model.fit(x_train, y_train)
-    else:
-        svm_model = svm.SVC(C=100, gamma=0.001, kernel='sigmoid')
-        svm_model.fit(x_train, y_train)
-        # param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['rbf', 'poly', 'sigmoid']}
-        # svm_model = GridSearchCV(svm.SVC(),param_grid,refit=True, scoring = 'accuracy')
-        # svm_model.partial_fit(x_train,y_train)
-    
-    # KNN
-    model_exists = False
-    try:
-        f = open("Pickled_models\\knn_model.pkl")
-        model_exists = True
-        f.close()
-    except FileNotFoundError:
-        print("Could not open")
-    
-    if model_exists:
-        pkl_filename = "Pickled_models\\knn_model.pkl"
-        # Load from file
-        with open(pkl_filename, 'rb') as file:
-            knn_model = pickle.load(file)
-            knn_model.fit(x_train, y_train)
-    else:
-        knn_model = KNeighborsClassifier(leaf_size=1, n_neighbors=3)
-        knn_model.fit(x_train, y_train)
-        #List Hyperparameters to tune
-        # leaf_size = list(range(1,50))
-        # n_neighbors = list(range(1,19))
-        # p=[1,2]
-        # #convert to dictionary
-        # hyperparameters = dict(leaf_size=leaf_size, n_neighbors=n_neighbors, p=p)
-        # #Making model
-        # knn_model = GridSearchCV(KNeighborsClassifier(), hyperparameters, cv=10, scoring = 'accuracy')
-        # knn_model.partial_fit(x_train, y_train)
-    
     #NN
     
     # model_exists = False
@@ -838,14 +978,6 @@ def pickle_model_train(X,Y):
         SGD_model = SGDClassifier(loss="hinge", penalty="l2", max_iter=5)
         SGD_model.partial_fit(x_train, y_train,classes=np.unique(y_train))
 
-    with open("Pickled_models\\rf_model.pkl", 'wb') as file:
-        pickle.dump(rf_model, file)
-
-    with open("Pickled_models\\svm_model.pkl", 'wb') as file:
-        pickle.dump(svm_model, file)
-    
-    with open("Pickled_models\\knn_model.pkl", 'wb') as file:
-        pickle.dump(knn_model, file)
     
     with open("Pickled_models\\nn_model.pkl", 'wb') as file:
         pickle.dump(nn_model, file)
@@ -857,6 +989,50 @@ def pickle_model_train(X,Y):
         
     with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
         pickle.dump(SGD_model, file)
+
+def partial_fit_other_models(X,Y):
+    # Random Forest Model
+
+    rf_model = RandomForestClassifier(n_estimators=250, max_features='auto',min_samples_leaf=25,n_jobs=-1,oob_score = True)
+    rf_model.fit(x_train, y_train)
+    
+    # params = {'max_features': ['auto', 'sqrt', 'log2', 'None'],
+    #         'min_samples_leaf': list(range(1,50,5)),
+    #         'oob_score': ['True', 'False'],
+    #         'n_estimators': [150,200,250,300,400,500]
+    #         }
+
+    # rf_model = GridSearchCV(RandomForestClassifier(n_jobs=-1), param_grid=params, n_jobs=-1,cv=5, scoring='accuracy')
+    # rf_model.partial_fit(x_train, y_train)
+    
+    # SVM
+    svm_model = svm.SVC(C=100, gamma=0.001, kernel='sigmoid')
+    svm_model.fit(x_train, y_train)
+    # param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['rbf', 'poly', 'sigmoid']}
+    # svm_model = GridSearchCV(svm.SVC(),param_grid,refit=True, scoring = 'accuracy')
+    # svm_model.partial_fit(x_train,y_train)
+    
+    # KNN
+    knn_model = KNeighborsClassifier(leaf_size=1, n_neighbors=3)
+    knn_model.fit(x_train, y_train)
+    #List Hyperparameters to tune
+    # leaf_size = list(range(1,50))
+    # n_neighbors = list(range(1,19))
+    # p=[1,2]
+    # #convert to dictionary
+    # hyperparameters = dict(leaf_size=leaf_size, n_neighbors=n_neighbors, p=p)
+    # #Making model
+    # knn_model = GridSearchCV(KNeighborsClassifier(), hyperparameters, cv=10, scoring = 'accuracy')
+    # knn_model.partial_fit(x_train, y_train)
+    
+    with open("Pickled_models\\rf_model.pkl", 'wb') as file:
+        pickle.dump(rf_model, file)
+
+    with open("Pickled_models\\svm_model.pkl", 'wb') as file:
+        pickle.dump(svm_model, file)
+    
+    with open("Pickled_models\\knn_model.pkl", 'wb') as file:
+        pickle.dump(knn_model, file)
 
 def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,row_name = ''):
     string = ''
@@ -871,40 +1047,289 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
     skip_num = int(window_size/10)
     # skip_num = 5
     
-    
     print('Test')
     
     df = pd.DataFrame()
     if dataIS =='EEG':
-        h = pd.read_csv(f"{extract_path}\\ERP_VP001_0-back.csv")
+        files = []
+        # r=root, d=directories, f = files
+        for r, d, f in os.walk(extract_path):
+            for file in f:
+                if 'All_Data.csv' not in file and '.csv' in file:
+                # if 'average' in file and '.csv' in file:
+                    files.append(os.path.join(r, file))
+        
+        hold = pd.DataFrame()
+        first_part = 0
+        
+        for i in range(len(files)):
+            this_participant = f'{files[i][files[i].find("VP0")+3]}{files[i][files[i].find("VP0")+4]}'
+            if this_participant == f'{first_participant}':
+                first_part = i
+                break
+                
+        for i in range(first_part,len(files)):
+            this_participant = f'{files[i][files[i].find("VP0")+3]}{files[i][files[i].find("VP0")+4]}'
+            if i+1 != len(files):
+                next_participant = f'{files[i+1][files[i+1].find("VP0")+3]}{files[i+1][files[i+1].find("VP0")+4]}'
+            elif i+1 == len(files):
+                next_participant = ''
+            else:
+                print("We have an issue")
             
-        df_0_back = pd.read_csv(f"{extract_path}\\ERP_VP0{participant}_0-back.csv")
-        Y_0_back = [0]*df_0_back.shape[0]
-        df_0_back.columns = h.columns
-        df_0_back.insert(0,'Y',Y_0_back)
-        
-        df_2_back = pd.read_csv(f"{extract_path}\\ERP_VP0{participant}_2-back.csv")
-        Y_2_back = [2]*df_2_back.shape[0]
-        df_2_back.columns = h.columns
-        df_2_back.insert(0,'Y',Y_2_back)
+            #if this_participant == to next_participant then collect the data
+            if this_participant == next_participant: 
+                if  'trial001' in files[i]:
+                    continue
+                
+                if f'VP0{this_participant}' in files[i] and '0back' in files[i]:
+                    # print('0-back')
+                    if window_size != 0 and jump != -1:
+                        df_0_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                    else:
+                        df_0_back = pd.read_csv(files[i])
+                
+                    if 'Unnamed' in df_0_back.columns[-1]:
+                        del df_0_back[f'{df_0_back.columns[-1]}'] 
+                    
+                    df_0_back = df_0_back.T
+                
+                    # Removes the NaN from EEG 
+                    if df_0_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_0_back.shape[0]):
+                            if df_0_back.isna().any(axis=1)[i]:
+                                df_0_back  = df_0_back[df_0_back.index != i]
+                    
+                    # print(df_0_back['Time'][0])
+                    if window_size != 0 and jump != -1:
+                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame()
+                        df_0_back = df_0_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_0_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_0_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_0_back = df2
+                    
+                    # print(df_0_back)
+                    
+                    Y_0_back = [0]*df_0_back.shape[0]
+                    # df_0_back.columns = h.columns
+                    df_0_back.insert(0,'Y',Y_0_back)
+                    
+                    hold = hold.append(df_0_back, ignore_index = True)
+                    
+                elif f'VP0{this_participant}' in files[i] and '2back' in files[i]:
+                    # print('2-back')
+                    if window_size != 0 and jump != -1:
+                        df_2_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
                         
-        df_3_back = pd.read_csv(f"{extract_path}\\ERP_VP0{participant}_3-back.csv")
-        Y_3_back = [3]*df_3_back.shape[0]
-        df_3_back.columns = h.columns
-        df_3_back.insert(0,'Y',Y_3_back)
-        
-        hold = df_0_back.copy()
-        hold = hold.append(df_2_back, ignore_index = True)
-        hold = hold.append(df_3_back, ignore_index = True)
-        
-        # Removes the NaN from EEG and NIRS
-        if hold.isnull().values.any() and dataIS =='EEG':
-            for i in range(hold.shape[0]):
-                if hold.isna().any(axis=1)[i]:
-                    hold  = hold[hold.index != i]
-    
-        X = hold.iloc[:,1:].to_numpy()
-        Y = hold.iloc[:,0].to_numpy()
+                    else:
+                        df_2_back = pd.read_csv(files[i])
+                
+                    if 'Unnamed' in df_2_back.columns[-1]:
+                        del df_2_back[f'{df_2_back.columns[-1]}'] 
+                    
+                    df_2_back = df_2_back.T
+                
+                    # Removes the NaN from EEG 
+                    if df_2_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_2_back.shape[0]):
+                            if df_2_back.isna().any(axis=1)[i]:
+                                df_2_back  = df_2_back[df_2_back.index != i]
+                    
+                    if window_size != 0 and jump != -1:
+                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame()
+                        df_2_back = df_2_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_2_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_2_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_2_back = df2
+                    
+                    Y_2_back = [2]*df_2_back.shape[0]
+                    # df_2_back.columns = h.columns
+                    df_2_back.insert(0,'Y',Y_2_back)
+                    
+                    hold = hold.append(df_2_back, ignore_index = True)
+                
+            #if this_participant != to next_participant then analyze the data
+            elif next_participant != '':
+                if  'trial001' in files[i]:
+                    continue
+                
+                if f'VP0{this_participant}' in files[i] and '3back' in files[i]:
+                    # print("3-back")
+                    if window_size != 0 and jump != -1:
+                        df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                        # print("here1")
+                    else:
+                        df_3_back = pd.read_csv(files[i])
+                    
+                    if 'Unnamed' in df_3_back.columns[-1]:
+                        del df_3_back[f'{df_3_back.columns[-1]}'] 
+                    
+                    df_3_back = df_3_back.T
+                    
+                    # Removes the NaN from EEG 
+                    if df_3_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_3_back.shape[0]):
+                            if df_3_back.isna().any(axis=1)[i]:
+                                df_3_back  = df_3_back[df_3_back.index != i]
+                    
+                    if window_size != 0 and jump != -1:
+                        # print("here2")
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
+                        df_3_back = df_3_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_3_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_3_back = df2
+                    
+                    Y_3_back = [3]*df_3_back.shape[0]
+                    # df_3_back.columns = h.columns
+                    df_3_back.insert(0,'Y',Y_3_back)
+                    
+                    hold = hold.append(df_3_back, ignore_index = True)
+
+                print('This participant:',this_participant)
+                
+                if row_name != '':
+                    hold = check_columns(extract_path,hold, row_name, dataIS)
+                    
+                if hold.isnull().values.any() and dataIS =='EEG':
+                    for i in range(hold.shape[0]):
+                        if hold.isna().any(axis=1)[i]:
+                            hold  = hold[hold.index != i]
+                
+                # print(hold)
+                
+                X = hold.iloc[:,1:].to_numpy()
+                Y = hold.iloc[:,0].to_numpy()
+                acc_values = pickle_model_test(X,Y)
+                if window_size == 0 and jump == -1:
+                    print(acc_values[-1])
+                rf_accuracy += acc_values[0]
+                svm_accuracy += acc_values[1]
+                knn_accuracy += acc_values[2]
+                nn_accuracy += acc_values[3]
+                gauss_accuracy += acc_values[4]
+                SGD_accuracy += acc_values[5]
+                consensus_accuracy += acc_values[6]
+                string+=acc_values[-1]
+
+                c+= 1
+                
+                #reseting hold
+                hold = pd.DataFrame()
+                
+            #last_participant reached
+            else:
+                if  'trial001' in files[i]:
+                    continue
+                
+                if f'VP0{this_participant}' in files[i] and '3back' in files[i]:
+                    if window_size != 0 and jump != -1:
+                        df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                    else:
+                        df_3_back = pd.read_csv(files[i])
+                    
+                    if 'Unnamed' in df_3_back.columns[-1]:
+                        del df_3_back[f'{df_3_back.columns[-1]}'] 
+                    
+                    df_3_back = df_3_back.T
+                    
+                    # Removes the NaN from EEG 
+                    if df_3_back.isnull().values.any() and dataIS =='EEG':
+                        for i in range(df_3_back.shape[0]):
+                            if df_3_back.isna().any(axis=1)[i]:
+                                df_3_back  = df_3_back[df_3_back.index != i]
+                    
+                    if window_size != 0 and jump != -1:
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
+                        df_3_back = df_3_back.T
+                    else:
+                        count = 0
+                        df = pd.DataFrame()
+                        df2 = pd.DataFrame()
+                        for i in range(df_3_back.shape[0]):
+                            if count%100 !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                                count += 1
+                            else:
+                                # print('Bye')
+                                df = df.mean(axis = 0, skipna = True).to_frame()
+                                df2 = df2.append(df.T, ignore_index = True)
+                                df = pd.DataFrame()
+                                count = 0
+                        df_3_back = df2
+                    
+                    Y_3_back = [3]*df_3_back.shape[0]
+                    # df_3_back.columns = h.columns
+                    df_3_back.insert(0,'Y',Y_3_back)
+                    
+                    hold = hold.append(df_3_back, ignore_index = True)
+                
+                print('Last Participant:', this_participant)
+                # print(hold.head())
+                    
+                if row_name != '':
+                        hold = check_columns(extract_path,hold, row_name, dataIS)
+                
+                if hold.isnull().values.any() and dataIS =='EEG':
+                    for i in range(hold.shape[0]):
+                        if hold.isna().any(axis=1)[i]:
+                            hold  = hold[hold.index != i]
+                
+                X = hold.iloc[:,1:].to_numpy()
+                Y = hold.iloc[:,0].to_numpy()
+                acc_values = pickle_model_test(X,Y)
+                if window_size == 0 and jump == -1:
+                    print(acc_values[-1])
+                rf_accuracy += acc_values[0]
+                svm_accuracy += acc_values[1]
+                knn_accuracy += acc_values[2]
+                nn_accuracy += acc_values[3]
+                gauss_accuracy += acc_values[4]
+                SGD_accuracy += acc_values[5]
+                consensus_accuracy += acc_values[6]
+                string+=acc_values[-1]
+
+                c+= 1
+                
+                #reseting hold
+                hold = pd.DataFrame()
+                break
 
     elif dataIS == "NIRS":
         files = []
@@ -1142,11 +1567,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
     SGD_accuracy = SGD_accuracy/c
     
     print("Overall Accuracy")
-    print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy))
-    print("--------------------------------Evaluating SGD Accuracy--------------------------------\n")
-    print(f'Accuracy: {SGD_accuracy} %\n')
-    print("--------------------------------Evaluating Consensus Accuracy--------------------------------\n")
-    print(f'Accuracy: {consensus_accuracy} %\n')
+    print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
     
     return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy, string]
 
@@ -1285,15 +1706,7 @@ def pickle_model_test(X,Y):
                 
         consensus_accuracy = accuracy_score(y_test,consensus_prediction)
     
-    string = show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy)
-    
-    SGD_accuracy = (SGD_accuracy)*100
-    string +=("--------------------------------Evaluating SGD Accuracy--------------------------------\n")
-    string +=(f'Accuracy: {SGD_accuracy} %\n')
-    
-    consensus_accuracy = (consensus_accuracy)*100
-    string +=("--------------------------------Evaluating Consensus Accuracy--------------------------------\n")
-    string +=(f'Accuracy: {consensus_accuracy} %\n')
+    string = show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy)
 
     with open("Pickled_models\\rf_model.pkl", 'wb') as file:
         pickle.dump(rf_model, file)
@@ -1310,14 +1723,14 @@ def pickle_model_test(X,Y):
     # nn_model.save('saved_model/my_model')
     
     with open("Pickled_models\\gauss_model.pkl", 'wb') as file:
-        pickle.dump(gauss_model, file)
+        pickle.dump(gauss_model, file)  
     
     with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
-        pickle.dump(gauss_model, file)
+        pickle.dump(SGD_model, file)
 
     return [rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy,gauss_accuracy, SGD_accuracy, consensus_accuracy, string]
 
-def show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, string = ''):
+def show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy, string = ''):
     
     rf_accuracy = (rf_accuracy)*100
 
@@ -1347,6 +1760,15 @@ def show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_acc
     string +=("--------------------------------Testing Accuracy Naive Bayes--------------------------------\n")
     string +=(f'Accuracy: {gauss_accuracy} %\n')
     # string +=(f'y_test: {y_test[:4]}\nPrediction: {gauss_prediction[:4]}\n')
+    
+    SGD_accuracy = (SGD_accuracy)*100
+    string +=("--------------------------------Evaluating SGD Accuracy--------------------------------\n")
+    string +=(f'Accuracy: {SGD_accuracy} %\n')
+    
+    consensus_accuracy = (consensus_accuracy)*100
+    string +=("--------------------------------Evaluating Consensus Accuracy--------------------------------\n")
+    string +=(f'Accuracy: {consensus_accuracy} %\n')
+    
     return string
 
 def run_models(numOfIter, X, Y, select_col):
@@ -1592,7 +2014,7 @@ if __name__ == '__main__':
     # path = sys.argv[5]
     # rows_names = []
     path = ''
-    x = 'NIRS'
+    x = 'EEG'
     y = ''
     
     z = 'False'
@@ -1627,7 +2049,6 @@ if __name__ == '__main__':
             rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']
     else:
         rows_names = y
-            
     
     all_data_file_exists = False
         
