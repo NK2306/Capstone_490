@@ -28,7 +28,7 @@ from itertools import islice
 import warnings
 # warnings.filterwarnings("ignore")
 
-def exec_Code(dataIS, row_name, window_analysis,tts_participant):
+def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_neg_time):
     #Constants
     rows_avg = 10
     count = 5
@@ -54,31 +54,47 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant):
     #! Add this to scrape_files
     # Remove negative time
     # r=root, d=directories, f = files
-
-    # for r, d, f in os.walk(extract_path):
-    #     for file in f:
-    #         if '.csv' in file and 'All_Data' not in file:
-    #             files.append(os.path.join(r, file))
-    # for i in range(len(files)):
-    #     remove_negative_time(dataIS,files[i])
+    if remove_neg_time:
+        for r, d, f in os.walk(extract_path):
+            for file in f:
+                if '.csv' in file and 'All_Data' not in file:
+                    files.append(os.path.join(r, file))
+        for i in range(len(files)):
+            remove_negative_time(dataIS,files[i])
     
     # Reading the information from the csv file into the dataset
-    if not all_data_file_exists:
-        scrape_files(extract_path, read_path, rows_avg, dataIS)
+    # if scrape_data:
+    #     if not all_data_file_exists:
+    #         scrape_files(extract_path, read_path, rows_avg, dataIS)
+    #     else:
+    #         print('The data file already exists')
 
     #! Implement a Just Train or Just Test option
-    # if just_train:
-    #     train_models(extract_path,)
-    # elif just_test:
-    #     test_models(extract_path)
-    
+    # walk & find how many particip there are
+    if just_do != '':
+        for r, d, f in os.walk(extract_path):
+            for file in f:
+                if '.csv' in file and 'All_Data' not in file:
+                    files.append(os.path.join(r, file))
+        
+        last_particip = f'{files[-1][files[-1].find("VP0")+3]}{files[-1][files[-1].find("VP0")+4]}'
+        
+        if just_do = 'train':
+            acc_val = train_models(extract_path, dataIS, last_train_particip)
+        
+        if just_do = 'test':
+            first_test_participant = last_train_particip
+            acc_val = test_models(extract_path,dataIS,first_test_participant)
+    elif just_do = '':
+        #calc % put in by user
+        
     #* Sliding window analysis to get accuracy in that time frame
     if window_analysis:
         print("Sliding window analysis")
         last_participant = 21
         window(window_size, extract_path, last_participant, dataIS, row_name)
     
-    elif train_test_split_participants:
+    if train_test_split_participants:
         print("Train test split inter-participants")
         # Train the model with the first 20 participants
         # if dataIS == "EEG":
@@ -1990,7 +2006,7 @@ def remove_negative_time(dataIS,files):
     df = pd.read_csv(files)
     # print(df.columns)
     for i in range(df.shape[0]):
-        if df['Time'][i] <35 or df['Time'][i] >55:
+        if df['Time'][i] <0:
             # print(df['Time'][i])
             df = df.drop([i], axis=0)
     
@@ -2029,6 +2045,10 @@ if __name__ == '__main__':
     if a == 'True':
         tts_participant = True
 
+    just_do = 'test'
+    
+    remove_neg_time = ''
+
     print(y)
     if y == 'frontal':
         if x == "EEG":
@@ -2052,4 +2072,4 @@ if __name__ == '__main__':
     
     all_data_file_exists = False
         
-    sys.stdout.write(str(exec_Code(x, rows_names, window_analysis,tts_participant)))
+    sys.stdout.write(str(exec_Code(x, rows_names, window_analysis, tts_participant, just_do, remove_neg_time)))
