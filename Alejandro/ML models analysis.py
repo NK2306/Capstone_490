@@ -28,7 +28,7 @@ from itertools import islice
 import warnings
 # warnings.filterwarnings("ignore")
 
-def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_neg_time):
+def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input_percent, remove_neg_time):
     #Constants
     rows_avg = 10
     count = 5
@@ -37,6 +37,8 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_n
     select_col = False
     window_size = 100
     percent_train = 0
+    last_participant = 21
+    
     # Boolean
     train_test_split_participants = tts_participant
     
@@ -72,65 +74,54 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_n
 
     #! Implement a Just Train or Just Test option
     # walk & find how many particip there are
+    for r, d, f in os.walk(extract_path):
+        for file in f:
+            if '.csv' in file and 'All_Data' not in file:
+                files.append(os.path.join(r, file))
+    last_participant = f'{files[-1][files[-1].find("VP0")+3]}{files[-1][files[-1].find("VP0")+4]}'
+    
     if just_do != '':
-        for r, d, f in os.walk(extract_path):
-            for file in f:
-                if '.csv' in file and 'All_Data' not in file:
-                    files.append(os.path.join(r, file))
-        
-        last_train_particip = f'{files[-1][files[-1].find("VP0")+3]}{files[-1][files[-1].find("VP0")+4]}'
-        
         if just_do == 'train':
+            last_train_particip = last_participant
             acc_val = train_models(extract_path, dataIS, last_train_particip)
         
         if just_do == 'test':
-            first_test_participant = last_train_particip
+            first_test_participant = f'{files[0][files[0].find("VP0")+3]}{files[0][files[0].find("VP0")+4]}'
             acc_val = test_models(extract_path,dataIS,first_test_participant)
+        return
     elif just_do == '':
-        #calc % put in by user
-        percent_train = 0
-        
+        # Calc % put in by user
+        if input_percent != '':
+            #* Only take int the first 2 values & assume greater than 10?
+            last_train_particip = round((int(f'{input_percent[0]}{input_percent[1]}')/100.0)*(int(last_participant)))
+        else:
+            print('Please Input a Valid Percentage')
+            return
         
     #* Sliding window analysis to get accuracy in that time frame
     if window_analysis:
         print("Sliding window analysis")
-        last_participant = 21
         window(window_size, extract_path, last_participant, dataIS, row_name)
     
     if train_test_split_participants:
         print("Train test split inter-participants")
-        # Train the model with the first 20 participants
-        # if dataIS == "EEG":
-        #     last_train_particip = 21
-        #     # acc_val = train_models(extract_path, dataIS, last_train_particip)
-        #     # print(acc_val[-1])
-    
-        #     # Test the model witht the last 6 participants
-        #     first_test_participant = last_train_particip
-        #     acc_val = test_models(extract_path,dataIS,first_test_participant)
-       
-        # elif dataIS == "NIRS":
-            
-        last_train_particip = 21
+        
+        # Test the model  
         acc_val = train_models(extract_path, dataIS, last_train_particip)
-        # print(acc_val[-1])
 
-        # Test the model witht the last 6 participants
-        first_test_participant = last_train_particip
-        acc_val = test_models(extract_path,dataIS,first_test_participant)
-        # print(acc_val[-1])
+        # Test the model
+        acc_val = test_models(extract_path,dataIS,last_train_particip)
         
         #! Remove later
         # Reset values
-        os.remove("Pickled_models\\rf_model.pkl")
-        os.remove("Pickled_models\\svm_model.pkl")
-        os.remove("Pickled_models\\knn_model.pkl")
-        os.remove("Pickled_models\\nn_model.pkl")
-        os.remove("Pickled_models\\gauss_model.pkl")
-        os.remove("Pickled_models\\SGD_model.pkl")
+        # os.remove("Pickled_models\\rf_model.pkl")
+        # os.remove("Pickled_models\\svm_model.pkl")
+        # os.remove("Pickled_models\\knn_model.pkl")
+        # os.remove("Pickled_models\\nn_model.pkl")
+        # os.remove("Pickled_models\\gauss_model.pkl")
+        # os.remove("Pickled_models\\SGD_model.pkl")
                 
     else:
-        
         # Check if we are restricting our data to just the selected columns
         if row_name != '':
             select_col = True
@@ -146,18 +137,13 @@ def exec_Code(dataIS, row_name, window_analysis,tts_participant,just_do,remove_n
         # Removes the NaN from NIRS
         if np.isnan(hold.iloc[2,hold.shape[1]-1]) and dataIS =='NIRS':
             del hold[f'{hold.shape[1]-2}']
-
+            
         print("Accuracy analysis with cross-validation")
-        # print()
-        # print("------------------------First five rows of Dataset--------------------------")
-        # print(hold.head())
-        # print()
 
         X = hold.iloc[:,1:].to_numpy()
         Y = hold.iloc[:,0].to_numpy()
         X,Y = shuffle(X,Y)
         # print(cross_validate(count,X, Y, select_col))
-        # print(acc_val[-1])
     
 def check_columns(extract_path, dataframe, row_name, dataIS,):
     
@@ -1009,6 +995,8 @@ def pickle_model_train(X,Y):
     with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
         pickle.dump(SGD_model, file)
 
+#* We use this function to work around the fact that partial_fit() does not work with these models.
+#* This is a work around to train these models once with the data that exists, but retraining it will overwrite the previous model.
 def partial_fit_other_models(X,Y):
     x_train = X
     y_train = Y
@@ -1040,7 +1028,7 @@ def partial_fit_other_models(X,Y):
     # svm_model.partial_fit(x_train,y_train)
     
     # KNN
-    knn_model = KNeighborsClassifier(leaf_size=1, n_neighbors=3)
+    knn_model = KNeighborsClassifier(leaf_size=3, n_neighbors=3)
     knn_model.fit(x_train, y_train)
     #List Hyperparameters to tune
     # leaf_size = list(range(1,50))
@@ -2047,7 +2035,7 @@ if __name__ == '__main__':
     z = 'False'
     window_analysis = False
     
-    a = 'True'
+    a = 'False'
     tts_participant = False
 
     if z == 'True':
@@ -2056,9 +2044,11 @@ if __name__ == '__main__':
     if a == 'True':
         tts_participant = True
 
-    just_do = 'test'
+    just_do = ''
     
     remove_neg_time = ''
+    
+    input_percent = '80.5%'
 
     print(y)
     if y == 'frontal':
@@ -2083,4 +2073,4 @@ if __name__ == '__main__':
     
     all_data_file_exists = False
         
-    sys.stdout.write(str(exec_Code(x, rows_names, window_analysis, tts_participant, just_do, remove_neg_time)))
+    sys.stdout.write(str(exec_Code(x, rows_names, window_analysis, tts_participant, just_do, input_percent, remove_neg_time)))
