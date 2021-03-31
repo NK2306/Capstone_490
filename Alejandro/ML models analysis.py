@@ -101,7 +101,7 @@ def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input
                 #Generate n random numbers between 10 and 30
                 print(f'This is the {n} list')
                 train_participant_list = random.sample(range(1,int(last_participant)+1), num_of_train)
-                # train_participant_list = random.sample(range(1,int(27)), 21)
+                # train_participant_list = random.sample(range(21,27), 3)
                 print('Train list:',train_participant_list)
                 train_models(extract_path, dataIS, train_participant_list)
                 
@@ -434,7 +434,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                     this_participant = '0'+f'{this_participant}'
                 print('This participant is',this_participant)
                 
-                for i in range(len(files)):
+                for i in range(len(files)-1):
                     # print (i)
                     if f'VP0{this_participant}' in files[i]:
                         # print('file: ',files[i])
@@ -540,6 +540,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                             hold = hold.append(df_3_back, ignore_index = True)
                         
                         # print('here',i , len(files))
+                        
                         if f'VP0{this_participant}' not in files[i+1]:
                             # print('Run train_models')
                             
@@ -1287,7 +1288,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                     this_participant = '0'+f'{this_participant}'
                 print('This participant is',this_participant)
                 
-                for i in range(len(files)):
+                for i in range(len(files)-1):
                     # print (i)
                     if f'VP0{this_participant}' in files[i]:
                         # print('file: ',files[i])
