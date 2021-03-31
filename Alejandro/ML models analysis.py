@@ -27,6 +27,7 @@ import math
 from itertools import islice
 import warnings
 # warnings.filterwarnings("ignore")
+import random
 
 def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input_percent, remove_neg_time):
     #Constants
@@ -36,8 +37,7 @@ def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input
     all_data_file_exists = False
     select_col = False
     window_size = 100
-    percent_train = 0
-    last_participant = 21
+    last_train_participant = 21
     
     # Boolean
     train_test_split_participants = tts_participant
@@ -82,8 +82,8 @@ def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input
     
     if just_do != '':
         if just_do == 'train':
-            last_train_particip = last_participant
-            acc_val = train_models(extract_path, dataIS, last_train_particip)
+            last_train_participant = last_participant
+            acc_val = train_models(extract_path, dataIS, last_train_participant)
         
         if just_do == 'test':
             first_test_participant = f'{files[0][files[0].find("VP0")+3]}{files[0][files[0].find("VP0")+4]}'
@@ -93,7 +93,26 @@ def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input
         # Calc % put in by user
         if input_percent != '':
             #* Only take int the first 2 values & assume greater than 10?
-            last_train_particip = round((int(f'{input_percent[0]}{input_percent[1]}')/100.0)*(int(last_participant)))
+            num_of_train = round((int(f'{input_percent[0]}{input_percent[1]}')/100.0)*(int(last_participant)))
+            train_participant_list = []
+            
+            for n in range(3):
+                test_list = []
+                #Generate n random numbers between 10 and 30
+                print(f'This is the {n} list')
+                train_participant_list = random.sample(range(1,int(last_participant)+1), num_of_train)
+                # train_participant_list = random.sample(range(1,int(27)), 21)
+                print('Train list:',train_participant_list)
+                train_models(extract_path, dataIS, train_participant_list)
+                
+                for i in range(1,int(last_participant)+1):
+                    if i not in train_participant_list:
+                        test_list.append(i)
+                
+                print('Test list:', test_list)
+                acc_val = test_models(extract_path, dataIS, test_list)
+            return
+        
         else:
             print('Please Input a Valid Percentage')
             return
@@ -101,16 +120,16 @@ def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input
     #* Sliding window analysis to get accuracy in that time frame
     if window_analysis:
         print("Sliding window analysis")
-        window(window_size, extract_path, last_participant, dataIS, row_name)
+        window(window_size, extract_path, last_train_participant, dataIS, row_name)
     
     if train_test_split_participants:
         print("Train test split inter-participants")
         
         # Test the model  
-        acc_val = train_models(extract_path, dataIS, last_train_particip)
+        acc_val = train_models(extract_path, dataIS, last_train_participant)
 
         # Test the model
-        acc_val = test_models(extract_path,dataIS,last_train_particip)
+        acc_val = test_models(extract_path,dataIS,last_train_participant)
         
         #! Remove later
         # Reset values
@@ -179,7 +198,6 @@ def check_columns(extract_path, dataframe, row_name, dataIS,):
     return hold
 
 def scrape_files(extract_path,read_path, rows_avg, dataIS):
-    
     hold = pd.DataFrame()
     files = []
     
@@ -249,92 +267,34 @@ def scrape_files(extract_path,read_path, rows_avg, dataIS):
 def window(window_size, extract_path, last_participant,dataIS,row_name):
     print("window")
     skip_num = int(window_size/10)
+    df = pd.DataFrame()
+    time_frame = []
+    files = []
+    rf_accuracy = []
+    svm_accuracy = []
+    knn_accuracy = []
+    nn_accuracy = []
+    gauss_accuracy = []
+    SGD_accuracy = []
+    consensus_accuracy = []
+    c=0
+    
+    for r, d, f in os.walk(extract_path):
+        for file in f:
+            if '.csv' in file and 'All_Data' not in file:
+                files.append(os.path.join(r, file))
+                break
+    h = pd.read_csv(files[0])
     
     if dataIS == "EEG":
-        h = pd.read_csv(f"{extract_path}\\ERP_VP001_0-back.csv")
-        for j in range(1,6):
-            time_frame = []
-            rf_accuracy = []
-            svm_accuracy = []
-            knn_accuracy = []
-            nn_accuracy = []
-            gauss_accuracy = []
-            # consensus_accuracy = []
-            print('Participant:', j)
-            df = pd.DataFrame()
-
-            
-            for i in range(int(h.shape[0]-skip_num)): #h.shape[0]
-                df_0_back = pd.read_csv(f"{extract_path}\\ERP_VP0{j}_0-back.csv", skiprows = i+skip_num, nrows = window_size)
-                Y_0_back = [0]*df_0_back.shape[0]
-                df_0_back.columns = h.columns
-                df_0_back.insert(0,'Y',Y_0_back)
-                time_frame.append("{:.3f}".format(np.mean(df_0_back['Time'])))
-                # print ('time frame:')
-                # print(time_frame)
-                
-                df_2_back = pd.read_csv(f"{extract_path}\\ERP_VP0{j}_2-back.csv", skiprows = i+skip_num, nrows = window_size)
-                Y_2_back = [2]*df_2_back.shape[0]
-                df_2_back.columns = h.columns
-                df_2_back.insert(0,'Y',Y_2_back)
-                                
-                df_3_back = pd.read_csv(f"{extract_path}\\ERP_VP0{j}_3-back.csv", skiprows = i+skip_num, nrows = window_size)
-                Y_3_back = [3]*df_3_back.shape[0]
-                df_3_back.columns = h.columns
-                df_3_back.insert(0,'Y',Y_3_back)
-                
-                hold = df_0_back.copy()
-                hold = hold.append(df_2_back, ignore_index = True)
-                hold = hold.append(df_3_back, ignore_index = True)
-                # print('Hold: ')
-                # print(hold.head())
-            
-                X = hold.iloc[:,2:].to_numpy()
-                Y = hold.iloc[:,0].to_numpy()
-                acc_values = run_models(count, X, Y, select_col)
-                rf_accuracy.append(acc_values[0])
-                svm_accuracy.append(acc_values[1])
-                knn_accuracy.append(acc_values[2])
-                nn_accuracy.append(acc_values[3])
-                gauss_accuracy.append(acc_values[4])
-                consensus_accuracy.append(acc_values[5])
-            
-            df.insert(0,'Random Forest',rf_accuracy)
-            df.insert(1,'SVM',svm_accuracy)
-            df.insert(2,'KNN',knn_accuracy)
-            df.insert(3,'NN',nn_accuracy)
-            df.insert(4,'Gauss',gauss_accuracy)
-            df.insert(5,'Consensus',consensus_accuracy)
-            df.insert(6,'Time', time_frame)
-            lines = df.plot.line(x='Time')
-            lines.set_title(f'Sliding window Performance Participant {j} EEG')
-            lines.set_ylabel('Accuracy %')
-            
-            # plt.show()
-            plt.savefig(f'Sliding_EEG\\Sliding window Performance Participant {j} EEG.png')
-    
-    elif dataIS == "NIRS":
-        df = pd.DataFrame()
-        time_frame = []
-        files = []
-        rf_accuracy = []
-        svm_accuracy = []
-        knn_accuracy = []
-        nn_accuracy = []
-        gauss_accuracy = []
-        consensus_accuracy = []
-        c=0
-        time_frame.append('0.0')
-        h = pd.read_csv(f"{extract_path}\\VP001-NIRS\\0-back_session\\data_0-back_session_average_210315_1325.csv")
-        if 'Unnamed' in h.columns[-1]:
-            del h['Unnamed: 109']
-            # print(h.head())
+        # time_frame.append('0.0')
 
         for j in range(0,int(h.shape[0]-skip_num),skip_num):  #int(h.shape[0]-skip_num)
-        # while j < int(h.shape[0]-skip_num):
-            df_0_back = pd.read_csv(f"{extract_path}\\VP001-NIRS\\0-back_session\\data_0-back_session_average_210315_1325.csv", skiprows = j+skip_num, nrows = window_size)
-            df_0_back.columns = h.columns
-            time_frame.append("{:.3f}".format(np.mean(df_0_back['Time'])))
+            # df_0_back = pd.read_csv(f"{extract_path}\\VP001-NIRS\\0-back_session\\data_0-back_session_average_210315_1325.csv", skiprows = j+skip_num, nrows = window_size)
+            # df_0_back.columns = h.columns
+            # time_frame.append("{:.3f}".format(np.mean(df_0_back['Time'])))
+            for i in range(-10,10):
+                time_frame.append(i/10.0)
             
             # train phase
             train_models(extract_path,dataIS,last_participant,window_size,j,row_name)
@@ -348,14 +308,16 @@ def window(window_size, extract_path, last_participant,dataIS,row_name):
                 knn_accuracy.append(acc_values[2])
                 nn_accuracy.append(acc_values[3])
                 gauss_accuracy.append(acc_values[4])
-                consensus_accuracy.append(acc_values[5])
+                SGD_accuracy.append(acc_values[5])
+                consensus_accuracy.append(acc_values[6])
                 c+=1
             rf_accuracy.append(acc_values[0])
             svm_accuracy.append(acc_values[1])
             knn_accuracy.append(acc_values[2])
             nn_accuracy.append(acc_values[3])
             gauss_accuracy.append(acc_values[4])
-            consensus_accuracy.append(acc_values[5])
+            SGD_accuracy.append(acc_values[5])
+            consensus_accuracy.append(acc_values[6])
             
             # for i in range(len(time_frame)):
             #     if float(time_frame[i])>10.0:
@@ -369,16 +331,63 @@ def window(window_size, extract_path, last_participant,dataIS,row_name):
             os.remove("Pickled_models\\gauss_model.pkl")
             acc_values = 0
             
-        # 
+        for i in range(0,len(rf_accuracy)):
+            time_frame.append(i)
+        
         df.insert(0,'Random Forest',rf_accuracy)
         df.insert(1,'SVM',svm_accuracy)
         df.insert(2,'KNN',knn_accuracy)
         df.insert(3,'NN',nn_accuracy)
         df.insert(4,'Gauss',gauss_accuracy)
-        # df.insert(5,'Consensus',consensus_accuracy)
-        # print(df['Consensus'])
-        df.insert(5,'Time', time_frame)
-        lines = df.plot(kind = 'line',x='Time',xlim=(0,50),ylim=(0,1),xticks=([w*10 for w in range(30)]),yticks=([w*0.1 for w in range(10)]))
+        df.insert(5,'SGD',SGD_accuracy)
+        df.insert(6,'Consensus',consensus_accuracy)
+        df.insert(7,'Time', time_frame)
+        lines = df.plot(kind = 'line',x='Time',xlim=(-1,1),ylim=(0,1),xticks=(10),yticks=([w*0.1 for w in range(10)]))
+        lines.set_title(f'Sliding Window Performance NIRS All Trials & Time Mean')
+        lines.set_ylabel('Accuracy %')
+        plt.legend(loc="best")
+        plt.plot(df['Time'],consensus_accuracy)
+        plt.savefig(f'Sliding Window Performance NIRS All Trials & Time Mean.png')
+    
+    elif dataIS == "NIRS":
+        for j in range(0,int(h.shape[0]-skip_num),skip_num):  #int(h.shape[0]-skip_num)
+            c+=1
+            # train phase
+            train_models(extract_path,dataIS,last_participant,window_size,j,row_name)
+                    
+            # test phase    
+            acc_values = test_models(extract_path,dataIS,last_participant,window_size,j,row_name)
+
+            rf_accuracy.append(acc_values[0])
+            svm_accuracy.append(acc_values[1])
+            knn_accuracy.append(acc_values[2])
+            nn_accuracy.append(acc_values[3])
+            gauss_accuracy.append(acc_values[4])
+            SGD_accuracy.append(acc_values[5])
+            consensus_accuracy.append(acc_values[6])
+            
+            #reset values
+            # print('reset values')
+            os.remove("Pickled_models\\rf_model.pkl")
+            os.remove("Pickled_models\\svm_model.pkl")
+            os.remove("Pickled_models\\knn_model.pkl")
+            os.remove("Pickled_models\\nn_model.pkl")
+            os.remove("Pickled_models\\gauss_model.pkl")
+            os.remove("Pickled_models\\SGD_model.pkl")
+            acc_values = 0
+
+        for i in range(0,len(rf_accuracy)):
+            time_frame.append(i)
+        
+        df.insert(0,'Random Forest',rf_accuracy)
+        df.insert(1,'SVM',svm_accuracy)
+        df.insert(2,'KNN',knn_accuracy)
+        df.insert(3,'NN',nn_accuracy)
+        df.insert(4,'Gauss',gauss_accuracy)
+        df.insert(5,'SGD',SGD_accuracy)
+        df.insert(6,'Consensus',consensus_accuracy)
+        df.insert(7,'Time', time_frame)
+        lines = df.plot(kind = 'line',x='Time',xlim=(0,60),ylim=(0,1),xticks=([w*5 for w in range(60)]),yticks=([w*0.1 for w in range(10)]))
         lines.set_title(f'Sliding Window Performance NIRS All Trials & Time Mean')
         lines.set_ylabel('Accuracy %')
         plt.legend(loc="best")
@@ -388,7 +397,6 @@ def window(window_size, extract_path, last_participant,dataIS,row_name):
         #         plt.axvline(x=t)
         #         break
         # plt.show()
-        plt.plot(df['Time'],consensus_accuracy)
         plt.savefig(f'Sliding Window Performance NIRS All Trials & Time Mean.png')   
 
 def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row_name = ''):
@@ -396,6 +404,169 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
     c=0
     skip_num = int(window_size/10)
     # skip_num = 5
+    
+    # print(type(last_participant))
+    if type(last_participant) == list:
+        print('Is a list')
+        
+        if dataIS == "NIRS":
+            files = []
+            i = 0
+            # r=root, d=directories, f = files
+            for r, d, f in os.walk(extract_path):
+                for file in f:
+                    if 'average' not in file and 'All_Data.csv' not in file and '.csv' in file:
+                    # if 'average' in file and '.csv' in file:
+                        files.append(os.path.join(r, file))
+            
+            h = pd.read_csv(files[0])
+            if 'Unnamed' in h.columns[-1]:
+                del h['Unnamed: 109']
+            
+            hold = pd.DataFrame()
+            partial_fit_df = pd.DataFrame()
+            last_particip = last_participant[-1]
+            if int(last_particip) <10:
+                    last_particip = '0'+f'{last_particip}'
+            
+            for this_participant in last_participant:
+                if this_participant <10:
+                    this_participant = '0'+f'{this_participant}'
+                print('This participant is',this_participant)
+                
+                for i in range(len(files)):
+                    # print (i)
+                    if f'VP0{this_participant}' in files[i]:
+                        # print('file: ',files[i])
+                        if '0-back' in files[i]:
+                            # print('0-back')
+                            if window_size != 0 and jump != -1:
+                                df_0_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_0_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_0_back.columns[-1]:
+                                del df_0_back['Unnamed: 109']
+                            
+                            if window_size != 0 and jump != -1:
+                                df_0_back.columns = h.columns
+                                df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_0_back.shape[0]):
+                                    if count%100 !=0 or count ==0:
+                                        df = df.append(df_0_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_0_back = df2
+                                                
+                            Y_0_back = [0]*df_0_back.shape[0]
+                            df_0_back.insert(0,'Y',Y_0_back)
+                            
+                            hold = hold.append(df_0_back, ignore_index = True)
+                        elif '2-back' in files[i]:
+                            # print('2-back')
+                            if window_size != 0 and jump != -1:
+                                df_2_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                                
+                            else:
+                                df_2_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_2_back.columns[-1]:
+                                del df_2_back['Unnamed: 109']
+                            
+                            if window_size != 0 and jump != -1:
+                                df_2_back.columns = h.columns
+                                df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_2_back.shape[0]):
+                                    if count%100 !=0 or count ==0:
+                                        df = df.append(df_2_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_2_back = df2
+                            
+                            Y_2_back = [2]*df_2_back.shape[0]
+                            df_2_back.insert(0,'Y',Y_2_back)
+                            
+                            hold = hold.append(df_2_back, ignore_index = True)
+                        elif '3-back' in files[i]:
+                            if window_size != 0 and jump != -1:
+                                df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_3_back = pd.read_csv(files[i])
+                            
+                            if 'Unnamed' in df_3_back.columns[-1]:
+                                del df_3_back['Unnamed: 109']
+                            
+                            if window_size != 0 and jump != -1:
+                                df_3_back.columns = h.columns
+                                df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_3_back.shape[0]):
+                                    if count%100 !=0 or count ==0:
+                                        df = df.append(df_3_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_3_back = df2
+                            
+                            Y_3_back = [3]*df_3_back.shape[0]
+                            df_3_back.columns = h.columns
+                            df_3_back.insert(0,'Y',Y_3_back)
+                            
+                            hold = hold.append(df_3_back, ignore_index = True)
+                        
+                        # print('here',i , len(files))
+                        if f'VP0{this_participant}' not in files[i+1]:
+                            # print('Run train_models')
+                            
+                            if row_name != '':
+                                hold = check_columns(extract_path,hold, row_name, dataIS)
+                            
+                            # print(hold)
+                            
+                            X = hold.iloc[:,1:].to_numpy()
+                            Y = hold.iloc[:,0].to_numpy()
+                            # acc_val = pickle_model_train(X,Y)
+                            
+                            # Build partial_fit dataframe
+                            partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                            
+                            #reseting hold
+                            hold = pd.DataFrame()
+
+                if f'{this_participant}' == last_particip:
+                    # print('Run partial fit')
+                    print('Last participant is',last_particip)
+                    
+                    # # For last participant partial fit remaining models
+                    X = partial_fit_df.iloc[:,1:].to_numpy()
+                    Y = partial_fit_df.iloc[:,0].to_numpy()
+                    partial_fit_other_models(X,Y)
+        return
     
     df = pd.DataFrame()
     if dataIS =='EEG':
@@ -664,19 +835,13 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 # if 'average' in file and '.csv' in file:
                     files.append(os.path.join(r, file))
         
-        # print(files)
-        # for i in range(len(files)):
-        #     if f'VP001' in files[i] and '3-back' in files[i]:
-        #         print(files[i])
-        
-        # print(files)
         h = pd.read_csv(files[0])
         if 'Unnamed' in h.columns[-1]:
             del h['Unnamed: 109']
-            # print(h.head())
         
         hold = pd.DataFrame()
-
+        partial_fit_df = pd.DataFrame()
+        
         for i in range(len(files)):
             
             this_participant = f'{files[i][files[i].find("VP0")+3]}{files[i][files[i].find("VP0")+4]}'
@@ -699,30 +864,26 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                     if 'Unnamed' in df_0_back.columns[-1]:
                         del df_0_back['Unnamed: 109']
                     
-                    # print(df_0_back['Time'][0])
                     if window_size != 0 and jump != -1:
-                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame()
-                        df_0_back = df_0_back.T
+                        df_0_back.columns = h.columns
+                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_0_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_0_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_0_back = df2
-                    
-                    # print(df_0_back)
-                    
+                                        
                     Y_0_back = [0]*df_0_back.shape[0]
-                    # df_0_back.columns = h.columns
                     df_0_back.insert(0,'Y',Y_0_back)
                     
                     hold = hold.append(df_0_back, ignore_index = True)
@@ -739,26 +900,25 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         del df_2_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame()
-                        df_2_back = df_2_back.T
+                        df_2_back.columns = h.columns
+                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_2_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_2_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_2_back = df2
                     
                     Y_2_back = [2]*df_2_back.shape[0]
-                    # df_2_back.columns = h.columns
                     df_2_back.insert(0,'Y',Y_2_back)
                     
                     hold = hold.append(df_2_back, ignore_index = True)
@@ -766,39 +926,35 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
             #if this_participant != to next_participant then analyze the data
             elif next_participant != f'{last_participant}':
                 if f'VP0{this_participant}' in files[i] and '3-back' in files[i]:
-                    # print("3-back")
                     if window_size != 0 and jump != -1:
                         df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
-                        # print("here1")
                     else:
                         df_3_back = pd.read_csv(files[i])
-                        # print('Why we here?')
                     
                     if 'Unnamed' in df_3_back.columns[-1]:
                         del df_3_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        # print("here2")
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
                     
                     Y_3_back = [3]*df_3_back.shape[0]
-                    # df_3_back.columns = h.columns
+                    df_3_back.columns = h.columns
                     df_3_back.insert(0,'Y',Y_3_back)
                     
                     hold = hold.append(df_3_back, ignore_index = True)
@@ -808,7 +964,6 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 #     hold = pd.DataFrame()
                 #     continue
                 # else:
-                # print('Not the same')
                 print('This participant:',this_participant)
                 # print(hold)
                 
@@ -817,7 +972,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
-                acc_val = pickle_model_train(X,Y)
+                # acc_val = pickle_model_train(X,Y)
                 
                 # Build partial_fit dataframe
                 partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
@@ -837,20 +992,20 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         del df_3_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -869,7 +1024,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
-                acc_val = pickle_model_train(X,Y)
+                # acc_val = pickle_model_train(X,Y)
                 
                 # For last participant partial fit remaining models
                 partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
@@ -901,7 +1056,7 @@ def pickle_model_train(X,Y):
     # model_exists = False
     # if os.path.exists('saved_model\\my_model'):
     #     model_exists = True
-           # keras
+    # keras
     #     nn_model= tf.keras.models.load_model('saved_model/my_model')
     #     nn_model.partial_fit(x_train, y_train, epochs=31, batch_size=10)
     # else:
@@ -931,9 +1086,9 @@ def pickle_model_train(X,Y):
             nn_model = pickle.load(file)
             nn_model.partial_fit(x_train, y_train)
     else:
-        nn_model = MLPClassifier(solver= 'adam', alpha=1e-5, hidden_layer_sizes=(50, 75, 100),max_iter = 250,learning_rate='adaptive')
+        # nn_model = MLPClassifier(solver= 'adam', alpha=1e-5, hidden_layer_sizes=(50, 75, 100),max_iter = 250,learning_rate='adaptive')
+        nn_model = MLPClassifier(activation = 'relu', hidden_layer_sizes = (100,), learning_rate = 'adaptive', max_iter = 450, solver = 'adam')
         nn_model.partial_fit(x_train, y_train,classes=np.unique(y_train))
-        
         # %%time
         # params = {'activation': ['relu', 'tanh', 'logistic', 'identity','softmax'],
         #         'hidden_layer_sizes': [(100,), (50,100,), (50,75,100,),(12,),(13,),(14,),(15,),(16,),(17,),(18,),(19,),(20,),(21,)],
@@ -982,7 +1137,6 @@ def pickle_model_train(X,Y):
     else:
         SGD_model = SGDClassifier(loss="hinge", penalty="l2", max_iter=5)
         SGD_model.partial_fit(x_train, y_train,classes=np.unique(y_train))
-
     
     with open("Pickled_models\\nn_model.pkl", 'wb') as file:
         pickle.dump(nn_model, file)
@@ -1008,29 +1162,34 @@ def partial_fit_other_models(X,Y):
     x_train,y_train = shuffle(x_train,y_train)
     
     # Random Forest Model
-    rf_model = RandomForestClassifier(n_estimators=250, max_features='auto',min_samples_leaf=25,n_jobs=-1,oob_score = True)
+    # rf_model = RandomForestClassifier(n_estimators=250, max_features='auto',min_samples_leaf=25,n_jobs=-1,oob_score = True)
+    rf_model = RandomForestClassifier(max_features='sqrt', n_estimators=500,min_samples_leaf=25, n_jobs=-1, oob_score='False')
     rf_model.fit(x_train, y_train)
     
+    # Parameter Optimization
     # params = {'max_features': ['auto', 'sqrt', 'log2', 'None'],
     #         'min_samples_leaf': list(range(1,50,5)),
     #         'oob_score': ['True', 'False'],
-    #         'n_estimators': [150,200,250,300,400,500]
-    #         }
-
+    #         'n_estimators': [150,200,250,300,400,500]}
     # rf_model = GridSearchCV(RandomForestClassifier(n_jobs=-1), param_grid=params, n_jobs=-1,cv=5, scoring='accuracy')
-    # rf_model.partial_fit(x_train, y_train)
+    # rf_model.fit(x_train, y_train)
     
     # SVM
-    svm_model = svm.SVC(C=100, gamma=0.001, kernel='sigmoid')
+    # svm_model = svm.SVC(C=100, gamma=0.001, kernel='sigmoid')
+    svm_model = svm.SVC(C=10, gamma=0.01)
     svm_model.fit(x_train, y_train)
+    
+    # Parameter Optimization
     # param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['rbf', 'poly', 'sigmoid']}
     # svm_model = GridSearchCV(svm.SVC(),param_grid,refit=True, scoring = 'accuracy')
-    # svm_model.partial_fit(x_train,y_train)
+    # svm_model.fit(x_train, y_train)
     
     # KNN
-    knn_model = KNeighborsClassifier(leaf_size=3, n_neighbors=3)
+    # knn_model = KNeighborsClassifier(leaf_size=3, n_neighbors=3)
+    knn_model = KNeighborsClassifier(leaf_size=1, n_neighbors=1, p=1)
     knn_model.fit(x_train, y_train)
-    #List Hyperparameters to tune
+    
+    # List Hyperparameters to tune
     # leaf_size = list(range(1,50))
     # n_neighbors = list(range(1,19))
     # p=[1,2]
@@ -1038,7 +1197,35 @@ def partial_fit_other_models(X,Y):
     # hyperparameters = dict(leaf_size=leaf_size, n_neighbors=n_neighbors, p=p)
     # #Making model
     # knn_model = GridSearchCV(KNeighborsClassifier(), hyperparameters, cv=10, scoring = 'accuracy')
-    # knn_model.partial_fit(x_train, y_train)
+    # knn_model.fit(x_train, y_train)
+    
+    # nn_model = MLPClassifier(solver= 'adam', alpha=1e-5, hidden_layer_sizes=(50, 75, 100),max_iter = 250,learning_rate='adaptive')
+    nn_model = MLPClassifier(activation = 'relu', hidden_layer_sizes = (100,), learning_rate = 'adaptive', max_iter = 450, solver = 'adam')
+    nn_model.fit(x_train, y_train)
+    
+    # Parameter Optimization
+    # params = {'activation': ['relu', 'tanh', 'logistic', 'identity','softmax'],
+    #         'hidden_layer_sizes': [(100,), (50,100,), (50,75,100,),(15,),(20,)],
+    #         'solver': ['adam', 'sgd', 'lbfgs'],
+    #         'max_iter': [150,300,450,600,1000],
+    #         'learning_rate' : ['constant', 'adaptive', 'invscaling']
+    #         }
+
+    # nn_model = GridSearchCV(MLPClassifier(), param_grid=params, n_jobs=-1, cv=5, scoring='accuracy')
+    # nn_model.fit(x_train, y_train)
+    
+    gauss_model = GaussianNB()
+    gauss_model.fit(x_train, y_train)
+    
+    SGD_model = SGDClassifier(loss="hinge", penalty="l2") #, max_iter=5?
+    # params = {'loss': ['hinge', 'log', 'modified_huber', 'squared_hinge', 'perceptron'],
+    #         'penalty': ['l2', 'l1', 'elasticnet'],
+    #         'max_iter': [300,550,600,750,900,1050,1200,1350],
+    #         # 'learning_rate': ['constant','optimal','invscaling','adaptive']
+    #         }
+
+    # SGD_model = GridSearchCV(SGDClassifier(), param_grid=params, n_jobs=-1, cv=5, scoring='accuracy')
+    SGD_model.fit(x_train, y_train)
     
     with open("Pickled_models\\rf_model.pkl", 'wb') as file:
         pickle.dump(rf_model, file)
@@ -1048,6 +1235,15 @@ def partial_fit_other_models(X,Y):
     
     with open("Pickled_models\\knn_model.pkl", 'wb') as file:
         pickle.dump(knn_model, file)
+    
+    with open("Pickled_models\\nn_model.pkl", 'wb') as file:
+        pickle.dump(nn_model, file)
+    
+    with open("Pickled_models\\gauss_model.pkl", 'wb') as file:
+        pickle.dump(gauss_model, file)
+        
+    with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
+        pickle.dump(SGD_model, file)
 
 def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,row_name = ''):
     string = ''
@@ -1063,6 +1259,175 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
     # skip_num = 5
     
     print('Test')
+    if type(first_participant) == list:
+        print('Is a list')
+        
+        if dataIS == "NIRS":
+            files = []
+            i = 0
+            # r=root, d=directories, f = files
+            for r, d, f in os.walk(extract_path):
+                for file in f:
+                    if 'average' not in file and 'All_Data.csv' not in file and '.csv' in file:
+                    # if 'average' in file and '.csv' in file:
+                        files.append(os.path.join(r, file))
+            
+            h = pd.read_csv(files[0])
+            if 'Unnamed' in h.columns[-1]:
+                del h['Unnamed: 109']
+            
+            hold = pd.DataFrame()
+            partial_fit_df = pd.DataFrame()
+            last_particip = first_participant[-1]
+            if int(last_particip) <10:
+                    last_particip = '0'+f'{last_particip}'
+            
+            for this_participant in first_participant:
+                if this_participant <10:
+                    this_participant = '0'+f'{this_participant}'
+                print('This participant is',this_participant)
+                
+                for i in range(len(files)):
+                    # print (i)
+                    if f'VP0{this_participant}' in files[i]:
+                        # print('file: ',files[i])
+                        if '0-back' in files[i]:
+                            # print('0-back')
+                            if window_size != 0 and jump != -1:
+                                df_0_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_0_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_0_back.columns[-1]:
+                                del df_0_back['Unnamed: 109']
+                            
+                            if window_size != 0 and jump != -1:
+                                df_0_back.columns = h.columns
+                                df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_0_back.shape[0]):
+                                    if count%100 !=0 or count ==0:
+                                        df = df.append(df_0_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_0_back = df2
+                                                
+                            Y_0_back = [0]*df_0_back.shape[0]
+                            df_0_back.insert(0,'Y',Y_0_back)
+                            
+                            hold = hold.append(df_0_back, ignore_index = True)
+                        elif '2-back' in files[i]:
+                            # print('2-back')
+                            if window_size != 0 and jump != -1:
+                                df_2_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                                
+                            else:
+                                df_2_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_2_back.columns[-1]:
+                                del df_2_back['Unnamed: 109']
+                            
+                            if window_size != 0 and jump != -1:
+                                df_2_back.columns = h.columns
+                                df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_2_back.shape[0]):
+                                    if count%100 !=0 or count ==0:
+                                        df = df.append(df_2_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_2_back = df2
+                            
+                            Y_2_back = [2]*df_2_back.shape[0]
+                            df_2_back.insert(0,'Y',Y_2_back)
+                            
+                            hold = hold.append(df_2_back, ignore_index = True)
+                        elif '3-back' in files[i]:
+                            if window_size != 0 and jump != -1:
+                                df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_3_back = pd.read_csv(files[i])
+                            
+                            if 'Unnamed' in df_3_back.columns[-1]:
+                                del df_3_back['Unnamed: 109']
+                            
+                            if window_size != 0 and jump != -1:
+                                df_3_back.columns = h.columns
+                                df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_3_back.shape[0]):
+                                    if count%100 !=0 or count ==0:
+                                        df = df.append(df_3_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_3_back = df2
+                            
+                            Y_3_back = [3]*df_3_back.shape[0]
+                            df_3_back.columns = h.columns
+                            df_3_back.insert(0,'Y',Y_3_back)
+                            
+                            hold = hold.append(df_3_back, ignore_index = True)
+                        
+                        # print('here',i , len(files))
+                        if f'VP0{this_participant}' not in files[i+1]:
+                            # print('Run test_models')
+                            if row_name != '':
+                                hold = check_columns(extract_path,hold, row_name, dataIS)
+                            
+                            X = hold.iloc[:,1:].to_numpy()
+                            Y = hold.iloc[:,0].to_numpy()
+                            acc_values = pickle_model_test(X,Y)
+                            if window_size == 0 and jump == -1:
+                                print(acc_values[-1])
+                            rf_accuracy += acc_values[0]
+                            svm_accuracy += acc_values[1]
+                            knn_accuracy += acc_values[2]
+                            nn_accuracy += acc_values[3]
+                            gauss_accuracy += acc_values[4]
+                            SGD_accuracy += acc_values[5]
+                            consensus_accuracy += acc_values[6]
+                            string+=acc_values[-1]
+                            c+= 1
+                            
+                            #reseting hold
+                            hold = pd.DataFrame()
+
+            rf_accuracy = rf_accuracy/c
+            svm_accuracy = svm_accuracy/c
+            knn_accuracy = knn_accuracy/c
+            nn_accuracy = nn_accuracy/c
+            gauss_accuracy = gauss_accuracy/c
+            consensus_accuracy = consensus_accuracy/c
+            SGD_accuracy = SGD_accuracy/c
+            
+            print("Overall Accuracy")
+            print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
+            
+            return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy, string]
     
     df = pd.DataFrame()
     if dataIS =='EEG':
@@ -1117,25 +1482,23 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                     
                     # print(df_0_back['Time'][0])
                     if window_size != 0 and jump != -1:
-                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame()
-                        df_0_back = df_0_back.T
+                        df_0_back.columns = h.columns
+                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_0_back.shape[0]):
                             if count%100 !=0 or count ==0:
                                 df = df.append(df_0_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_0_back = df2
-                    
-                    # print(df_0_back)
                     
                     Y_0_back = [0]*df_0_back.shape[0]
                     # df_0_back.columns = h.columns
@@ -1163,20 +1526,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df_2_back  = df_2_back[df_2_back.index != i]
                     
                     if window_size != 0 and jump != -1:
-                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame()
-                        df_2_back = df_2_back.T
+                        df_2_back.columns = h.columns
+                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_2_back.shape[0]):
                             if count%100 !=0 or count ==0:
                                 df = df.append(df_2_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_2_back = df2
@@ -1212,21 +1575,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df_3_back  = df_3_back[df_3_back.index != i]
                     
                     if window_size != 0 and jump != -1:
-                        # print("here2")
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
                             if count%100 !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -1291,20 +1653,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df_3_back  = df_3_back[df_3_back.index != i]
                     
                     if window_size != 0 and jump != -1:
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
                             if count%100 !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -1391,20 +1753,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_0_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame()
-                        df_0_back = df_0_back.T
+                        df_0_back.columns = h.columns
+                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_0_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_0_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_0_back = df2
@@ -1426,20 +1788,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_2_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame()
-                        df_2_back = df_2_back.T
+                        df_2_back.columns = h.columns
+                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_2_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_2_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_2_back = df2
@@ -1463,20 +1825,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_3_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -1504,7 +1866,6 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                 SGD_accuracy += acc_values[5]
                 consensus_accuracy += acc_values[6]
                 string+=acc_values[-1]
-
                 c+= 1
                 
                 #reseting hold
@@ -1523,20 +1884,20 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_3_back['Unnamed: 109']
                     
                     if window_size != 0 and jump != -1:
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%10 !=0 or count ==0:
+                            if count%100 !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -1564,11 +1925,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                 SGD_accuracy += acc_values[5]
                 consensus_accuracy += acc_values[6]
                 string+=acc_values[-1]
-                
                 c+= 1
-                
-                print(SGD_accuracy)
-                print(c)
                 
                 #reseting hold
                 hold = pd.DataFrame()
@@ -1609,9 +1966,9 @@ def pickle_model_test(X,Y):
         rf_model = pickle.load(file)
         rf_prediction = rf_model.predict(x_test)
         rf_accuracy = accuracy_score(y_test, rf_prediction)
-        # print('SVM Best Accuracy  :',rf_accuracy)
-        # print('Best Parameters : ',svm_model.best_params_)
-        # print('Best Estimators: ',svm_model.best_estimator_)
+        # print('RF Best Accuracy  :',rf_accuracy)
+        # print('Best Parameters : ',rf_model.best_params_)
+        # print('Best Estimators: ',rf_model.best_estimator_)
     
     # Load SVM
     pkl_filename = "Pickled_models\\svm_model.pkl"
@@ -1645,7 +2002,7 @@ def pickle_model_test(X,Y):
         nn_model = pickle.load(file)
         nn_prediction = nn_model.predict(x_test)
         nn_accuracy = accuracy_score(y_test, nn_prediction)
-        # print('Grid Search Best Accuracy  :',nn_accuracy)
+        # print('NN Best Accuracy  :',nn_accuracy)
         # print('Best Parameters : ',nn_model.best_params_)
         # print('Best Estimators: ',nn_model.best_estimator_)
 
@@ -1667,6 +2024,10 @@ def pickle_model_test(X,Y):
         SGD_model = pickle.load(file)
         SGD_prediction = SGD_model.predict(x_test)
         SGD_accuracy = accuracy_score(y_test, SGD_prediction)
+    #     print('SGD Best Accuracy  :',SGD_model)
+    #     print('Best Parameters : ',SGD_model.best_params_)
+    #     print('Best Estimators: ',SGD_model.best_estimator_)
+    
         
     #* Check highest consensus of two models as a whole
     # Percentage similarity of lists 
@@ -1679,20 +2040,24 @@ def pickle_model_test(X,Y):
         if nn_prediction[i] == gauss_prediction[i]:
             consensus_prediction[i] = nn_prediction[i]
         
-        elif nn_prediction[i] == SGD_prediction[i]:
-            consensus_prediction[i] = nn_prediction[i]
+        # Consensus between SVM and Random Forest    
+        elif rf_prediction[i] == svm_prediction[i]:
+            consensus_prediction[i] = rf_prediction[i]
         
-        elif SGD_prediction[i] == gauss_prediction[i]:
-            consensus_prediction[i] = nn_prediction[i]
-        
-        # Consensus between Neural Network and Random Forest
-        elif nn_prediction[i] == rf_prediction[i]:
-            consensus_prediction[i] = nn_prediction[i]
-            
         # Consensus between Neural Network and KNN
         elif nn_prediction[i] == knn_prediction[i]:
             consensus_prediction[i] = nn_prediction[i]
+            
+        # Consensus between Neural Network and Random Forest
+        elif nn_prediction[i] == rf_prediction[i]:
+            consensus_prediction[i] = nn_prediction[i]
         
+        # elif nn_prediction[i] == SGD_prediction[i]:
+        #     consensus_prediction[i] = nn_prediction[i]
+        
+        # elif SGD_prediction[i] == gauss_prediction[i]:
+        #     consensus_prediction[i] = nn_prediction[i]
+
         elif gauss_prediction[i] == rf_prediction[i]:
             consensus_prediction[i] = gauss_prediction[i]
         
@@ -1707,10 +2072,7 @@ def pickle_model_test(X,Y):
         elif nn_prediction[i] == svm_prediction[i]:
             consensus_prediction[i]= nn_prediction[i]
             
-        # Consensus between SVM and Random Forest    
-        elif rf_prediction[i] == svm_prediction[i]:
-            consensus_prediction[i] = rf_prediction[i]
-            
+        
         # Consensus between KNN and SVM
         elif knn_prediction[i] == svm_prediction[i]:
             consensus_prediction[i] = knn_prediction[i]
@@ -1740,8 +2102,8 @@ def pickle_model_test(X,Y):
     with open("Pickled_models\\gauss_model.pkl", 'wb') as file:
         pickle.dump(gauss_model, file)  
     
-    with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
-        pickle.dump(SGD_model, file)
+    # with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
+    #     pickle.dump(SGD_model, file)
 
     return [rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy,gauss_accuracy, SGD_accuracy, consensus_accuracy, string]
 
@@ -2002,23 +2364,45 @@ def cross_validate(numOfIter, X, Y, select_col):
 
 def remove_negative_time(dataIS,files):
     # print(files)
-    df = pd.read_csv(files)
-    # print(df.columns)
-    for i in range(df.shape[0]):
-        if df['Time'][i] <0:
-            # print(df['Time'][i])
-            df = df.drop([i], axis=0)
-    
-    if 'Unnamed' in df.columns[-1] and dataIS =='NIRS':
-        del df['Unnamed: 109']
-    # print(df)
-    
-    if df.isnull().values.any() and dataIS =='EEG':
+    if dataIS =='EEG':
+        df = pd.read_csv(files)
+        df.T
+        # print(df.columns)
         for i in range(df.shape[0]):
-            if df.isna().any(axis=1)[i]:
-                df  = df[df.index != i]
-                
-    df.to_csv(files, index=False)
+            if df['Time'][i] <0:
+                # print(df['Time'][i])
+                df = df.drop([i], axis=0)
+        
+        if 'Unnamed' in df.columns[-1] and dataIS =='NIRS':
+            del df['Unnamed: 109']
+        # print(df)
+        
+        if df.isnull().values.any() and dataIS =='EEG':
+            for i in range(df.shape[0]):
+                if df.isna().any(axis=1)[i]:
+                    df  = df[df.index != i]
+                    
+        df.to_csv(files, index=False)
+        
+    if dataIS == "NIRS":
+        df = pd.read_csv(files)
+        # print(df.columns)
+        for i in range(df.shape[0]):
+            # if df['Time'][i] <0 or 15 < df['Time'][i] <35 or 55 < df['Time'][i]:
+            if df['Time'][i] <0:
+                # print(df['Time'][i])
+                df = df.drop([i], axis=0)
+        
+        if 'Unnamed' in df.columns[-1] and dataIS =='NIRS':
+            del df['Unnamed: 109']
+        # print(df)
+        
+        if df.isnull().values.any() and dataIS =='EEG':
+            for i in range(df.shape[0]):
+                if df.isna().any(axis=1)[i]:
+                    df  = df[df.index != i]
+                    
+        df.to_csv(files, index=False)
 
 if __name__ == '__main__':
     # x is data type (EEG or NIRS), y is boolean (restrict data or not)
@@ -2027,15 +2411,15 @@ if __name__ == '__main__':
     # z = str(sys.argv[3])
     # a = str(sys.argv[4])
     # path = sys.argv[5]
-    # rows_names = []
+    # rows_names = [] 
     path = ''
-    x = 'EEG'
+    x = 'NIRS'
     y = ''
     
     z = 'False'
     window_analysis = False
     
-    a = 'False'
+    a = 'True'
     tts_participant = False
 
     if z == 'True':
@@ -2045,9 +2429,7 @@ if __name__ == '__main__':
         tts_participant = True
 
     just_do = ''
-    
-    remove_neg_time = ''
-    
+    remove_neg_time = False
     input_percent = '80.5%'
 
     print(y)
