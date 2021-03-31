@@ -92,25 +92,63 @@ def exec_Code(dataIS, row_name, window_analysis, tts_participant, just_do, input
     elif just_do == '':
         # Calc % put in by user
         if input_percent != '':
+            rf_accuracy = 0
+            svm_accuracy = 0
+            knn_accuracy = 0
+            nn_accuracy = 0
+            gauss_accuracy = 0
+            SGD_accuracy = 0
+            consensus_accuracy = 0
+            c=0
+            
             #* Only take int the first 2 values & assume greater than 10?
             num_of_train = round((int(f'{input_percent[0]}{input_percent[1]}')/100.0)*(int(last_participant)))
             train_participant_list = []
             
-            for n in range(3):
+            for _ in range(3):
                 test_list = []
                 #Generate n random numbers between 10 and 30
-                print(f'This is the {n} list')
+                print(f'This list {c}')
                 train_participant_list = random.sample(range(1,int(last_participant)+1), num_of_train)
                 # train_participant_list = random.sample(range(21,27), 3)
                 print('Train list:',train_participant_list)
-                train_models(extract_path, dataIS, train_participant_list)
                 
                 for i in range(1,int(last_participant)+1):
+                # for i in range(21,27):
                     if i not in train_participant_list:
                         test_list.append(i)
-                
                 print('Test list:', test_list)
-                acc_val = test_models(extract_path, dataIS, test_list)
+                
+                train_models(extract_path, dataIS, train_participant_list)
+                
+                acc_values = test_models(extract_path, dataIS, test_list)
+                
+                rf_accuracy += acc_values[0]
+                svm_accuracy += acc_values[1]
+                knn_accuracy += acc_values[2]
+                nn_accuracy += acc_values[3]
+                gauss_accuracy += acc_values[4]
+                SGD_accuracy += acc_values[5]
+                consensus_accuracy += acc_values[6]
+                c+= 1
+                # Reset values
+                os.remove("Pickled_models\\rf_model.pkl")
+                os.remove("Pickled_models\\svm_model.pkl")
+                os.remove("Pickled_models\\knn_model.pkl")
+                os.remove("Pickled_models\\nn_model.pkl")
+                os.remove("Pickled_models\\gauss_model.pkl")
+                os.remove("Pickled_models\\SGD_model.pkl")
+            
+            rf_accuracy = rf_accuracy/c
+            svm_accuracy = svm_accuracy/c
+            knn_accuracy = knn_accuracy/c
+            nn_accuracy = nn_accuracy/c
+            gauss_accuracy = gauss_accuracy/c
+            consensus_accuracy = consensus_accuracy/c
+            SGD_accuracy = SGD_accuracy/c
+            
+            print("Overall Cross Validation Accuracy")
+            print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
             return
         
         else:
@@ -559,7 +597,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                             #reseting hold
                             hold = pd.DataFrame()
 
-                if f'{this_participant}' == last_particip:
+                if f'{this_participant}' == f'{last_particip}':
                     # print('Run partial fit')
                     print('Last participant is',last_particip)
                     
@@ -1425,10 +1463,10 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
             consensus_accuracy = consensus_accuracy/c
             SGD_accuracy = SGD_accuracy/c
             
-            print("Overall Accuracy")
+            print("Overall List Accuracy")
             print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
             
-            return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy, string]
+            return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, SGD_accuracy, consensus_accuracy, string]
     
     df = pd.DataFrame()
     if dataIS =='EEG':
@@ -1942,7 +1980,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
     print("Overall Accuracy")
     print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
     
-    return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy, string]
+    return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy,SGD_accuracy, consensus_accuracy, string]
 
 def pickle_model_test(X,Y):
     model_exists = False
