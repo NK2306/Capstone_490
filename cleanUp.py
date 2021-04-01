@@ -28,6 +28,11 @@ def cleanUp(path):
     graphList= [file for file in os.listdir() if file.endswith('.png')]
     for f in graphList:
         shutil.move(f, graph_folder)
+        
+    #Move accuracy result file
+    accuracyFiles= [file for file in os.listdir() if file.startswith('AccuracyResults')]
+    for f in accuracyFiles:
+        shutil.move(f, output_folder)
 
 # if __name__ == '__main__':
     # cleanUp('')

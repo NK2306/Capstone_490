@@ -149,6 +149,11 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
             
             print("Overall Cross Validation Accuracy")
             print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
+            
+            accuracyFile = open("AccuracyResults.txt", "w")
+            accuracyFile.write("Overall Cross Validation Accuracy")
+            accuracyFile.write(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
+            accuracyFile.close()
             return
         
         else:
@@ -2445,12 +2450,11 @@ def remove_negative_time(dataIS,files):
 
 if __name__ == '__main__':
     # x is data type (EEG or NIRS), y is boolean (restrict data or not)
-    #x = str(sys.argv[1])
-    #y = str(sys.argv[2])
-    #z = str(sys.argv[3])
-    z = str(sys.argv[1])
-    #a = str(sys.argv[4])
-    #path = str(sys.argv[5])
+    x = str(sys.argv[1])
+    y = str(sys.argv[2])
+    z = str(sys.argv[3])
+    a = str(sys.argv[4])
+    path = str(sys.argv[5])
 	
     #rows_names = [] 
     #path = ''
