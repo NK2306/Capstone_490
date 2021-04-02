@@ -29,7 +29,7 @@ import warnings
 # warnings.filterwarnings("ignore")
 import random
 
-def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, just_do, input_percent, remove_neg_time):
+def exec_Code(data_path, dataIS, row_name, window_analysis, just_do, input_percent, remove_neg_time):
     #Constants
     rows_avg = 10
     count = 5
@@ -38,10 +38,6 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
     select_col = False
     window_size = 100
     last_train_participant = 21
-    
-    # Boolean
-    train_test_split_participants = tts_participant
-    
     hold = pd.DataFrame()
             
     extract_path = f'{data_path}\\{dataIS}_Data'
@@ -54,17 +50,6 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
     except FileNotFoundError:
         print("Could not open")
     
-    #! Add this to scrape_files
-    # Remove negative time
-    # r=root, d=directories, f = files
-    if remove_neg_time:
-        for r, d, f in os.walk(extract_path):
-            for file in f:
-                if '.csv' in file and 'All_Data' not in file:
-                    files.append(os.path.join(r, file))
-        for i in range(len(files)):
-            remove_negative_time(dataIS,files[i])
-    
     # Reading the information from the csv file into the dataset
     # if scrape_data:
     #     if not all_data_file_exists:
@@ -72,20 +57,22 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
     #     else:
     #         print('The data file already exists')
 
-    #! Implement a Just Train or Just Test option
+    #* Implements a Just Train or Just Test option
     # walk & find how many particip there are
     for r, d, f in os.walk(extract_path):
         for file in f:
             if '.csv' in file and 'All_Data' not in file:
                 files.append(os.path.join(r, file))
+   
+    # We assume that all the participants are there from 0 to len(files)
     last_participant = f'{files[-1][files[-1].find("VP0")+3]}{files[-1][files[-1].find("VP0")+4]}'
     
     if just_do != '':
-        if just_do == 'train':
+        if just_do == 'Train':
             last_train_participant = last_participant
             acc_val = train_models(extract_path, dataIS, last_train_participant)
         
-        if just_do == 'test':
+        if just_do == 'Test':
             first_test_participant = f'{files[0][files[0].find("VP0")+3]}{files[0][files[0].find("VP0")+4]}'
             acc_val = test_models(extract_path,dataIS,first_test_participant)
         return
@@ -119,9 +106,19 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
                         test_list.append(i)
                 print('Test list:', test_list)
                 
-                train_models(extract_path, dataIS, train_participant_list)
+                if row_name == '':
+                    # Test the model  
+                    train_models(extract_path, dataIS, train_participant_list)
+
+                    # Test the model
+                    acc_values = test_models(extract_path,dataIS,test_list)
                 
-                acc_values = test_models(extract_path, dataIS, test_list)
+                elif row_name != '':
+                    # Test the model  
+                    train_models(extract_path, dataIS, train_participant_list,row_name)
+
+                    # Test the model
+                    acc_values = test_models(extract_path,dataIS,test_list,row_name)
                 
                 rf_accuracy += acc_values[0]
                 svm_accuracy += acc_values[1]
@@ -147,6 +144,7 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
             consensus_accuracy = consensus_accuracy/c
             SGD_accuracy = SGD_accuracy/c
             
+            print("Data type:", dataIS)
             print("Overall Cross Validation Accuracy")
             print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
             
@@ -154,58 +152,54 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, tts_participant, jus
             accuracyFile.write("Overall Cross Validation Accuracy")
             accuracyFile.write(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
             accuracyFile.close()
-            return
+            #return
         
         else:
-            print('Please Input a Valid Percentage')
-            return
+            print('No Percentage Given, Use Default')
+            print("Train test split inter-participants")
+
+            if row_name == '':
+                # Test the model  
+                train_models(extract_path, dataIS, last_train_participant)
+
+                # Test the model
+                acc_values = test_models(extract_path,dataIS,last_train_participant)
+            elif row_name != '':
+                # Test the model  
+                train_models(extract_path, dataIS, last_train_participant,row_name)
+
+                # Test the model
+                acc_values = test_models(extract_path,dataIS,last_train_participant,row_name)
+            
+            #! Remove later
+            # Reset values
+            # os.remove("Pickled_models\\rf_model.pkl")
+            # os.remove("Pickled_models\\svm_model.pkl")
+            # os.remove("Pickled_models\\knn_model.pkl")
+            # os.remove("Pickled_models\\nn_model.pkl")
+            # os.remove("Pickled_models\\gauss_model.pkl")
+            # os.remove("Pickled_models\\SGD_model.pkl")
+
         
     #* Sliding window analysis to get accuracy in that time frame
     if window_analysis:
         print("Sliding window analysis")
         window(window_size, extract_path, last_train_participant, dataIS, row_name)
-    
-    if train_test_split_participants:
-        print("Train test split inter-participants")
-        
-        # Test the model  
-        acc_val = train_models(extract_path, dataIS, last_train_participant)
-
-        # Test the model
-        acc_val = test_models(extract_path,dataIS,last_train_participant)
-        
-        #! Remove later
-        # Reset values
-        # os.remove("Pickled_models\\rf_model.pkl")
-        # os.remove("Pickled_models\\svm_model.pkl")
-        # os.remove("Pickled_models\\knn_model.pkl")
-        # os.remove("Pickled_models\\nn_model.pkl")
-        # os.remove("Pickled_models\\gauss_model.pkl")
-        # os.remove("Pickled_models\\SGD_model.pkl")
-                
-    else:
-        # Check if we are restricting our data to just the selected columns
-        if row_name != '':
-            select_col = True
-        
-        if select_col:
-            hold = check_columns(extract_path,read_path, row_name, dataIS)
-        else:
-            hold = pd.read_csv(read_path)
-
-        print(f"Data type: {dataIS}")
-        print(f"Restrict Columns: {select_col}\n")
+                       
+    # else:
+    #     print(f"Data type: {dataIS}")
+    #     print(f"Restrict Columns: {select_col}\n")
             
-        # Removes the NaN from NIRS
-        if np.isnan(hold.iloc[2,hold.shape[1]-1]) and dataIS =='NIRS':
-            del hold[f'{hold.shape[1]-2}']
+    #     # Removes the NaN from NIRS
+    #     if np.isnan(hold.iloc[2,hold.shape[1]-1]) and dataIS =='NIRS':
+    #         del hold[f'{hold.shape[1]-2}']
             
-        print("Accuracy analysis with cross-validation")
+    #     print("Accuracy analysis with cross-validation")
 
-        X = hold.iloc[:,1:].to_numpy()
-        Y = hold.iloc[:,0].to_numpy()
-        X,Y = shuffle(X,Y)
-        # print(cross_validate(count,X, Y, select_col))
+    #     X = hold.iloc[:,1:].to_numpy()
+    #     Y = hold.iloc[:,0].to_numpy()
+    #     X,Y = shuffle(X,Y)
+    #     # print(all_data_single_file(count,X, Y, select_col))
     
 def check_columns(extract_path, dataframe, row_name, dataIS,):
     
@@ -301,8 +295,8 @@ def scrape_files(extract_path,read_path, rows_avg, dataIS):
             if hold.isna().any(axis=1)[i]:
                 hold  = hold[hold.index != i]
                 
-    if 'Unnamed' in hold.columns[-1] and dataIS =='NIRS':
-        del hold['Unnamed: 109']
+    if 'Unnamed' in hold.columns[-1]:
+        del hold[f'{hold.columns[-1]}']
         # print(hold.head())
     
     hold.to_csv(read_path, index=False)
@@ -332,6 +326,8 @@ def window(window_size, extract_path, last_participant,dataIS,row_name):
     if dataIS == "EEG":
         # time_frame.append('0.0')
 
+        print("Untested, Errors expected")
+        
         for j in range(0,int(h.shape[0]-skip_num),skip_num):  #int(h.shape[0]-skip_num)
             # df_0_back = pd.read_csv(f"{extract_path}\\VP001-NIRS\\0-back_session\\data_0-back_session_average_210315_1325.csv", skiprows = j+skip_num, nrows = window_size)
             # df_0_back.columns = h.columns
@@ -396,10 +392,10 @@ def window(window_size, extract_path, last_participant,dataIS,row_name):
         for j in range(0,int(h.shape[0]-skip_num),skip_num):  #int(h.shape[0]-skip_num)
             c+=1
             # train phase
-            train_models(extract_path,dataIS,last_participant,window_size,j,row_name)
+            train_models(extract_path,dataIS,last_participant,row_name,window_size,j)
                     
             # test phase    
-            acc_values = test_models(extract_path,dataIS,last_participant,window_size,j,row_name)
+            acc_values = test_models(extract_path,dataIS,last_participant,row_name,window_size,j)
 
             rf_accuracy.append(acc_values[0])
             svm_accuracy.append(acc_values[1])
@@ -442,15 +438,224 @@ def window(window_size, extract_path, last_participant,dataIS,row_name):
         # plt.show()
         plt.savefig(f'Sliding Window Performance NIRS All Trials & Time Mean.png')   
 
-def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row_name = ''):
+def train_models(extract_path,dataIS, last_participant,row_name = '',window_size=0,jump=-1):
     print('train')
     c=0
+    numOfIter = 100
     skip_num = int(window_size/10)
     # skip_num = 5
     
     # print(type(last_participant))
     if type(last_participant) == list:
         print('Is a list')
+        
+        if dataIS == "EEG":
+            files = []
+            i = 0
+            # r=root, d=directories, f = files
+            for r, d, f in os.walk(extract_path):
+                for file in f:
+                    if 'average' not in file and 'All_Data.csv' not in file and '.csv' in file:
+                    # if 'average' in file and '.csv' in file:
+                        files.append(os.path.join(r, file))
+            
+            h = pd.read_csv(files[2])
+            if 'Unnamed' in h.columns[-1]:
+                del h[f'{h.columns[-1]}'] 
+            h = h.T
+            if type(h.columns[-1]) == int:
+                if type(h.iloc[0][0]) == str:
+                    h.columns = h.iloc[0]
+                    h = h.drop(index = f'{h.index[0]}')
+            # print(h.head())
+            
+            hold = pd.DataFrame()
+            fit_once_df = pd.DataFrame()
+            last_particip = last_participant[-1]
+            if int(last_particip) <10:
+                    last_particip = '0'+f'{last_particip}'
+            
+            for this_participant in last_participant:
+                if this_participant <10:
+                    this_participant = '0'+f'{this_participant}'
+                print('This participant is',this_participant)
+                
+                for i in range(len(files)-1):
+                    if  'trial001' in files[i]:
+                        continue
+                    
+                    if f'VP0{this_participant}' in files[i]:
+                        # print('file: ',files[i])
+                        if '0back' in files[i]:
+                            # print('0-back')
+                            if window_size != 0 and jump != -1:
+                                df_0_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_0_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_0_back.columns[-1]:
+                                del df_0_back[f'{df_0_back.columns[-1]}']
+                                
+                            df_0_back = df_0_back.T
+                            
+                            if type(df_0_back.columns[-1]) == int:
+                                if type(df_0_back.iloc[0][0]) == str:
+                                    df_0_back.columns = h.columns
+                                    df_0_back = df_0_back.drop(index = f'{df_0_back.index[0]}')
+                            # print(df_0_back.head())
+                            
+                            # Removes the NaN from EEG
+                            if df_0_back.isnull().values.any() and dataIS =='EEG':
+                                for i in range(df_0_back.shape[0]):
+                                    if df_0_back.isna().any(axis=1)[i]:
+                                        df_0_back  = df_0_back[df_0_back.index != i]
+                            
+                            if window_size != 0 and jump != -1:
+                                df_0_back.columns = h.columns
+                                df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_0_back.shape[0]):
+                                    if count%numOfIter !=0 or count ==0:
+                                        df = df.append(df_0_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_0_back = df2
+                            
+                            Y_0_back = [0]*df_0_back.shape[0]
+                            df_0_back.insert(0,'Y',Y_0_back)
+                            
+                            hold = hold.append(df_0_back, ignore_index = True)
+                        
+                        elif '2back' in files[i]:
+                            # print('2-back')
+                            if window_size != 0 and jump != -1:
+                                df_2_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                                
+                            else:
+                                df_2_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_2_back.columns[-1]:
+                                del df_2_back[f'{df_2_back.columns[-1]}']
+                                
+                            df_2_back = df_2_back.T
+                            if type(df_2_back.columns[-1]) == int:
+                                if type(df_2_back.iloc[0][0]) == str:
+                                    df_2_back.columns = h.columns
+                                    df_2_back = df_2_back.drop(index = f'{df_2_back.index[0]}')
+                    
+                            # Removes the NaN from EEG
+                            if df_2_back.isnull().values.any() and dataIS =='EEG':
+                                for i in range(df_2_back.shape[0]):
+                                    if df_2_back.isna().any(axis=1)[i]:
+                                        df_2_back  = df_2_back[df_2_back.index != i]
+                            
+                            if window_size != 0 and jump != -1:
+                                df_2_back.columns = h.columns
+                                df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_2_back.shape[0]):
+                                    if count%numOfIter !=0 or count ==0:
+                                        df = df.append(df_2_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_2_back = df2
+                            
+                            Y_2_back = [2]*df_2_back.shape[0]
+                            df_2_back.insert(0,'Y',Y_2_back)
+                            
+                            hold = hold.append(df_2_back, ignore_index = True)
+                        
+                        elif '3back' in files[i]:
+                            if window_size != 0 and jump != -1:
+                                df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_3_back = pd.read_csv(files[i])
+                            
+                            if 'Unnamed' in df_3_back.columns[-1]:
+                                del df_3_back[f'{df_3_back.columns[-1]}']
+                            
+                            df_3_back = df_3_back.T
+                            if type(df_3_back.columns[-1]) == int:
+                                if type(df_3_back.iloc[0][0]) == str:
+                                    df_3_back.columns = h.columns
+                                    df_3_back = df_3_back.drop(index = f'{df_3_back.index[0]}')
+                                    
+                            # Removes the NaN from EEG
+                            if df_3_back.isnull().values.any() and dataIS =='EEG':
+                                for i in range(df_3_back.shape[0]):
+                                    if df_3_back.isna().any(axis=1)[i]:
+                                        df_3_back  = df_3_back[df_3_back.index != i]
+                            
+                            if window_size != 0 and jump != -1:
+                                df_3_back.columns = h.columns
+                                df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_3_back.shape[0]):
+                                    if count%numOfIter !=0 or count ==0:
+                                        df = df.append(df_3_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_3_back = df2
+                            
+                            Y_3_back = [3]*df_3_back.shape[0]
+                            df_3_back.columns = h.columns
+                            df_3_back.insert(0,'Y',Y_3_back)
+                            
+                            hold = hold.append(df_3_back, ignore_index = True)
+                        
+                        # print('here',i , len(files))
+                        
+                        if f'VP0{this_participant}' not in files[i+1]:
+                            # print('Run train_models')
+                            
+                            # print(hold)
+                            
+                            if row_name != '':
+                                hold = check_columns(extract_path, hold, row_name, dataIS)
+                                # print(hold)
+                            
+                            X = hold.iloc[:,1:].to_numpy()
+                            Y = hold.iloc[:,0].to_numpy()
+                            acc_val = train_model_partial_fit(X,Y)
+                            
+                            # Build partial_fit dataframe
+                            fit_once_df = fit_once_df.append(hold, ignore_index = True)
+                            
+                            #reseting hold
+                            hold = pd.DataFrame()
+
+                if f'{this_participant}' == f'{last_particip}':
+                    # print('Run partial fit')
+                    print('Last participant is',last_particip)
+                    print(fit_once_df)
+                    # # For last participant partial fit remaining models
+                    X = fit_once_df.iloc[:,1:].to_numpy()
+                    Y = fit_once_df.iloc[:,0].to_numpy()
+                    train_model_fit_once(X,Y)
         
         if dataIS == "NIRS":
             files = []
@@ -464,10 +669,10 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
             
             h = pd.read_csv(files[0])
             if 'Unnamed' in h.columns[-1]:
-                del h['Unnamed: 109']
+                del h[f'{h.columns[-1]}']
             
             hold = pd.DataFrame()
-            partial_fit_df = pd.DataFrame()
+            fit_once_df = pd.DataFrame()
             last_particip = last_participant[-1]
             if int(last_particip) <10:
                     last_particip = '0'+f'{last_particip}'
@@ -489,7 +694,9 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                                 df_0_back = pd.read_csv(files[i])
                         
                             if 'Unnamed' in df_0_back.columns[-1]:
-                                del df_0_back['Unnamed: 109']
+                                del df_0_back[f'{df_0_back.columns[-1]}']
+                            
+                            df_0_back.columns = h.columns
                             
                             if window_size != 0 and jump != -1:
                                 df_0_back.columns = h.columns
@@ -499,7 +706,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                                 df = pd.DataFrame(columns = h.columns)
                                 df2 = pd.DataFrame(columns = h.columns)
                                 for j in range(df_0_back.shape[0]):
-                                    if count%100 !=0 or count ==0:
+                                    if count%numOfIter !=0 or count ==0:
                                         df = df.append(df_0_back.iloc[j], ignore_index = True)
                                         count += 1
                                     else:
@@ -523,7 +730,9 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                                 df_2_back = pd.read_csv(files[i])
                         
                             if 'Unnamed' in df_2_back.columns[-1]:
-                                del df_2_back['Unnamed: 109']
+                                del df_2_back[f'{df_2_back.columns[-1]}']
+                            
+                            df_2_back.columns = h.columns
                             
                             if window_size != 0 and jump != -1:
                                 df_2_back.columns = h.columns
@@ -533,7 +742,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                                 df = pd.DataFrame(columns = h.columns)
                                 df2 = pd.DataFrame(columns = h.columns)
                                 for j in range(df_2_back.shape[0]):
-                                    if count%100 !=0 or count ==0:
+                                    if count%numOfIter !=0 or count ==0:
                                         df = df.append(df_2_back.iloc[j], ignore_index = True)
                                         count += 1
                                     else:
@@ -555,7 +764,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                                 df_3_back = pd.read_csv(files[i])
                             
                             if 'Unnamed' in df_3_back.columns[-1]:
-                                del df_3_back['Unnamed: 109']
+                                del df_3_back[f'{df_3_back.columns[-1]}']
                             
                             if window_size != 0 and jump != -1:
                                 df_3_back.columns = h.columns
@@ -565,7 +774,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                                 df = pd.DataFrame(columns = h.columns)
                                 df2 = pd.DataFrame(columns = h.columns)
                                 for j in range(df_3_back.shape[0]):
-                                    if count%100 !=0 or count ==0:
+                                    if count%numOfIter !=0 or count ==0:
                                         df = df.append(df_3_back.iloc[j], ignore_index = True)
                                         count += 1
                                     else:
@@ -594,10 +803,10 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                             
                             X = hold.iloc[:,1:].to_numpy()
                             Y = hold.iloc[:,0].to_numpy()
-                            # acc_val = pickle_model_train(X,Y)
+                            acc_val = train_model_partial_fit(X,Y)
                             
                             # Build partial_fit dataframe
-                            partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                            fit_once_df = fit_once_df.append(hold, ignore_index = True)
                             
                             #reseting hold
                             hold = pd.DataFrame()
@@ -607,9 +816,9 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                     print('Last participant is',last_particip)
                     
                     # # For last participant partial fit remaining models
-                    X = partial_fit_df.iloc[:,1:].to_numpy()
-                    Y = partial_fit_df.iloc[:,0].to_numpy()
-                    partial_fit_other_models(X,Y)
+                    X = fit_once_df.iloc[:,1:].to_numpy()
+                    Y = fit_once_df.iloc[:,0].to_numpy()
+                    train_model_fit_once(X,Y)
         return
     
     df = pd.DataFrame()
@@ -622,7 +831,16 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 # if 'average' in file and '.csv' in file:
                     files.append(os.path.join(r, file))
         
-        partial_fit_df = pd.DataFrame()
+        h = pd.read_csv(files[2])
+        if 'Unnamed' in h.columns[-1]:
+            del h[f'{h.columns[-1]}'] 
+        h = h.T
+        if type(h.columns[-1]) == int:
+            if type(h.iloc[0][0]) == str:
+                h.columns = h.iloc[0]
+                h = h.drop(index = f'{h.index[0]}')
+        
+        fit_once_df = pd.DataFrame()
         hold = pd.DataFrame()
         for i in range(len(files)):
             
@@ -650,6 +868,12 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         del df_0_back[f'{df_0_back.columns[-1]}'] 
                     
                     df_0_back = df_0_back.T
+                            
+                    if type(df_0_back.columns[-1]) == int:
+                        if type(df_0_back.iloc[0][0]) == str:
+                            df_0_back.columns = h.columns
+                            df_0_back = df_0_back.drop(index = f'{df_0_back.index[0]}')
+                    # print(df_0_back.head())
                     
                     # Removes the NaN from EEG
                     if df_0_back.isnull().values.any() and dataIS =='EEG':
@@ -657,24 +881,21 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                             if df_0_back.isna().any(axis=1)[i]:
                                 df_0_back  = df_0_back[df_0_back.index != i]
                     
-                    # print(df_0_back)
-                    
-                    # print(df_0_back['Time'][0])
                     if window_size != 0 and jump != -1:
-                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame()
-                        df_0_back = df_0_back.T
+                        df_0_back.columns = h.columns
+                        df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
                         for j in range(df_0_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_0_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_0_back = df2
@@ -699,28 +920,32 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         del df_2_back[f'{df_2_back.columns[-1]}'] 
                     
                     df_2_back = df_2_back.T
-
-                    # Removes the NaN from EEG 
+                    if type(df_2_back.columns[-1]) == int:
+                        if type(df_2_back.iloc[0][0]) == str:
+                            df_2_back.columns = h.columns
+                            df_2_back = df_2_back.drop(index = f'{df_2_back.index[0]}')
+            
+                    # Removes the NaN from EEG
                     if df_2_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_2_back.shape[0]):
                             if df_2_back.isna().any(axis=1)[i]:
                                 df_2_back  = df_2_back[df_2_back.index != i]
                     
                     if window_size != 0 and jump != -1:
-                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame()
-                        df_2_back = df_2_back.T
+                        df_2_back.columns = h.columns
+                        df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
-                        for i in range(df_2_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_2_back.iloc[i], ignore_index = True)
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
+                        for j in range(df_2_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_2_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_2_back = df2
@@ -746,29 +971,32 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         del df_3_back[f'{df_3_back.columns[-1]}'] 
                     
                     df_3_back = df_3_back.T
-                    
-                    # Removes the NaN from EEG 
+                    if type(df_3_back.columns[-1]) == int:
+                        if type(df_3_back.iloc[0][0]) == str:
+                            df_3_back.columns = h.columns
+                            df_3_back = df_3_back.drop(index = f'{df_3_back.index[0]}')
+                            
+                    # Removes the NaN from EEG
                     if df_3_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_3_back.shape[0]):
                             if df_3_back.isna().any(axis=1)[i]:
                                 df_3_back  = df_3_back[df_3_back.index != i]
                     
                     if window_size != 0 and jump != -1:
-                        # print("here2")
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
-                        for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
+                        for j in range(df_3_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -789,14 +1017,13 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                     for i in range(hold.shape[0]):
                         if hold.isna().any(axis=1)[i]:
                             hold  = hold[hold.index != i]
-                print(hold)
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
-                acc_val = pickle_model_train(X,Y)
+                acc_val = train_model_partial_fit(X,Y)
                 
                 # Build partial_fit dataframe
-                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                fit_once_df = fit_once_df.append(hold, ignore_index = True)
                 
                 #reseting hold
                 hold = pd.DataFrame()
@@ -814,27 +1041,32 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                     
                     df_3_back = df_3_back.T
                     
-                    # Removes the NaN from EEG 
+                    if type(df_3_back.columns[-1]) == int:
+                        if type(df_3_back.iloc[0][0]) == str:
+                            df_3_back.columns = h.columns
+                            df_3_back = df_3_back.drop(index = f'{df_3_back.index[0]}')
+                            
+                    # Removes the NaN from EEG
                     if df_3_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_3_back.shape[0]):
                             if df_3_back.isna().any(axis=1)[i]:
                                 df_3_back  = df_3_back[df_3_back.index != i]
                     
                     if window_size != 0 and jump != -1:
-                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame()
-                        df_3_back = df_3_back.T
+                        df_3_back.columns = h.columns
+                        df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
                     else:
                         count = 0
-                        df = pd.DataFrame()
-                        df2 = pd.DataFrame()
-                        for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                        df = pd.DataFrame(columns = h.columns)
+                        df2 = pd.DataFrame(columns = h.columns)
+                        for j in range(df_3_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
-                                df = df.mean(axis = 0, skipna = True).to_frame()
-                                df2 = df2.append(df.T, ignore_index = True)
+                                df = df.mean(axis = 0, skipna = True).to_frame().T
+                                df2 = df2.append(df, ignore_index = True)
                                 df = pd.DataFrame()
                                 count = 0
                         df_3_back = df2
@@ -858,13 +1090,13 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
-                pickle_model_train(X,Y)
+                train_model_partial_fit(X,Y)
                 
                 # For last participant partial fit remaining models
-                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
-                X = partial_fit_df.iloc[:,1:].to_numpy()
-                Y = partial_fit_df.iloc[:,0].to_numpy()
-                partial_fit_other_models(X,Y)
+                fit_once_df = fit_once_df.append(hold, ignore_index = True)
+                X = fit_once_df.iloc[:,1:].to_numpy()
+                Y = fit_once_df.iloc[:,0].to_numpy()
+                train_model_fit_once(X,Y)
                 
                 #reseting hold
                 hold = pd.DataFrame()
@@ -881,10 +1113,10 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
         
         h = pd.read_csv(files[0])
         if 'Unnamed' in h.columns[-1]:
-            del h['Unnamed: 109']
+            del h[f'{h.columns[-1]}']
         
         hold = pd.DataFrame()
-        partial_fit_df = pd.DataFrame()
+        fit_once_df = pd.DataFrame()
         
         for i in range(len(files)):
             
@@ -906,7 +1138,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df_0_back = pd.read_csv(files[i])
                 
                     if 'Unnamed' in df_0_back.columns[-1]:
-                        del df_0_back['Unnamed: 109']
+                        del df_0_back[f'{df_0_back.columns[-1]}']
                     
                     if window_size != 0 and jump != -1:
                         df_0_back.columns = h.columns
@@ -916,7 +1148,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_0_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_0_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -941,7 +1173,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df_2_back = pd.read_csv(files[i])
                 
                     if 'Unnamed' in df_2_back.columns[-1]:
-                        del df_2_back['Unnamed: 109']
+                        del df_2_back[f'{df_2_back.columns[-1]}']
                     
                     if window_size != 0 and jump != -1:
                         df_2_back.columns = h.columns
@@ -951,7 +1183,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_2_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_2_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -976,7 +1208,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df_3_back = pd.read_csv(files[i])
                     
                     if 'Unnamed' in df_3_back.columns[-1]:
-                        del df_3_back['Unnamed: 109']
+                        del df_3_back[f'{df_3_back.columns[-1]}']
                     
                     if window_size != 0 and jump != -1:
                         df_3_back.columns = h.columns
@@ -986,7 +1218,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -1016,10 +1248,10 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
-                # acc_val = pickle_model_train(X,Y)
+                acc_val = train_model_partial_fit(X,Y)
                 
                 # Build partial_fit dataframe
-                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
+                fit_once_df = fit_once_df.append(hold, ignore_index = True)
                 
                 #reseting hold
                 hold = pd.DataFrame()
@@ -1033,7 +1265,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df_3_back = pd.read_csv(files[i])
                     
                     if 'Unnamed' in df_3_back.columns[-1]:
-                        del df_3_back['Unnamed: 109']
+                        del df_3_back[f'{df_3_back.columns[-1]}']
                     
                     if window_size != 0 and jump != -1:
                         df_3_back.columns = h.columns
@@ -1043,7 +1275,7 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -1068,19 +1300,19 @@ def train_models(extract_path,dataIS, last_participant,window_size=0,jump=-1,row
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
-                # acc_val = pickle_model_train(X,Y)
+                acc_val = train_model_partial_fit(X,Y)
                 
                 # For last participant partial fit remaining models
-                partial_fit_df = partial_fit_df.append(hold, ignore_index = True)
-                X = partial_fit_df.iloc[:,1:].to_numpy()
-                Y = partial_fit_df.iloc[:,0].to_numpy()
-                partial_fit_other_models(X,Y)
+                fit_once_df = fit_once_df.append(hold, ignore_index = True)
+                X = fit_once_df.iloc[:,1:].to_numpy()
+                Y = fit_once_df.iloc[:,0].to_numpy()
+                train_model_fit_once(X,Y)
                 
                 #reseting hold
                 hold = pd.DataFrame()
                 break
              
-def pickle_model_train(X,Y):  
+def train_model_partial_fit(X,Y):  
     model_exists = False
     string = ''
     # Dividing the data into training and testing sets
@@ -1179,7 +1411,7 @@ def pickle_model_train(X,Y):
             SGD_model = pickle.load(file)
             SGD_model.partial_fit(x_train, y_train)
     else:
-        SGD_model = SGDClassifier(loss="hinge", penalty="l2", max_iter=5)
+        SGD_model = SGDClassifier(loss="hinge", penalty="l2")#, max_iter=5
         SGD_model.partial_fit(x_train, y_train,classes=np.unique(y_train))
     
     with open("Pickled_models\\nn_model.pkl", 'wb') as file:
@@ -1195,7 +1427,7 @@ def pickle_model_train(X,Y):
 
 #* We use this function to work around the fact that partial_fit() does not work with these models.
 #* This is a work around to train these models once with the data that exists, but retraining it will overwrite the previous model.
-def partial_fit_other_models(X,Y):
+def train_model_fit_once(X,Y):
     x_train = X
     y_train = Y
     
@@ -1244,8 +1476,8 @@ def partial_fit_other_models(X,Y):
     # knn_model.fit(x_train, y_train)
     
     # nn_model = MLPClassifier(solver= 'adam', alpha=1e-5, hidden_layer_sizes=(50, 75, 100),max_iter = 250,learning_rate='adaptive')
-    nn_model = MLPClassifier(activation = 'relu', hidden_layer_sizes = (100,), learning_rate = 'adaptive', max_iter = 450, solver = 'adam')
-    nn_model.fit(x_train, y_train)
+    # nn_model = MLPClassifier(activation = 'relu', hidden_layer_sizes = (100,), learning_rate = 'adaptive', max_iter = 450, solver = 'adam')
+    # nn_model.fit(x_train, y_train)
     
     # Parameter Optimization
     # params = {'activation': ['relu', 'tanh', 'logistic', 'identity','softmax'],
@@ -1258,10 +1490,10 @@ def partial_fit_other_models(X,Y):
     # nn_model = GridSearchCV(MLPClassifier(), param_grid=params, n_jobs=-1, cv=5, scoring='accuracy')
     # nn_model.fit(x_train, y_train)
     
-    gauss_model = GaussianNB()
-    gauss_model.fit(x_train, y_train)
+    # gauss_model = GaussianNB()
+    # gauss_model.fit(x_train, y_train)
     
-    SGD_model = SGDClassifier(loss="hinge", penalty="l2") #, max_iter=5?
+    # SGD_model = SGDClassifier(loss="hinge", penalty="l2") #, max_iter=5?
     # params = {'loss': ['hinge', 'log', 'modified_huber', 'squared_hinge', 'perceptron'],
     #         'penalty': ['l2', 'l1', 'elasticnet'],
     #         'max_iter': [300,550,600,750,900,1050,1200,1350],
@@ -1269,7 +1501,7 @@ def partial_fit_other_models(X,Y):
     #         }
 
     # SGD_model = GridSearchCV(SGDClassifier(), param_grid=params, n_jobs=-1, cv=5, scoring='accuracy')
-    SGD_model.fit(x_train, y_train)
+    # SGD_model.fit(x_train, y_train)
     
     with open("Pickled_models\\rf_model.pkl", 'wb') as file:
         pickle.dump(rf_model, file)
@@ -1280,16 +1512,16 @@ def partial_fit_other_models(X,Y):
     with open("Pickled_models\\knn_model.pkl", 'wb') as file:
         pickle.dump(knn_model, file)
     
-    with open("Pickled_models\\nn_model.pkl", 'wb') as file:
-        pickle.dump(nn_model, file)
+    # with open("Pickled_models\\nn_model.pkl", 'wb') as file:
+    #     pickle.dump(nn_model, file)
     
-    with open("Pickled_models\\gauss_model.pkl", 'wb') as file:
-        pickle.dump(gauss_model, file)
+    # with open("Pickled_models\\gauss_model.pkl", 'wb') as file:
+    #     pickle.dump(gauss_model, file)
         
-    with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
-        pickle.dump(SGD_model, file)
+    # with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
+    #     pickle.dump(SGD_model, file)
 
-def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,row_name = ''):
+def test_models(extract_path, dataIS, first_participant,row_name = '',window_size=0,jump=-1):
     string = ''
     rf_accuracy = 0
     svm_accuracy = 0
@@ -1299,6 +1531,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
     SGD_accuracy = 0
     consensus_accuracy = 0
     c=0
+    numOfIter = 100
     skip_num = int(window_size/10)
     # skip_num = 5
     
@@ -1306,6 +1539,212 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
     if type(first_participant) == list:
         print('Is a list')
         
+        if dataIS == "EEG":
+            files = []
+            i = 0
+            # r=root, d=directories, f = files
+            for r, d, f in os.walk(extract_path):
+                for file in f:
+                    if 'average' not in file and 'All_Data.csv' not in file and '.csv' in file:
+                    # if 'average' in file and '.csv' in file:
+                        files.append(os.path.join(r, file))
+            
+            h = pd.read_csv(files[2])
+            if 'Unnamed' in h.columns[-1]:
+                del h[f'{h.columns[-1]}'] 
+            h = h.T
+            if type(h.columns[-1]) == int:
+                if type(h.iloc[0][0]) == str:
+                    h.columns = h.iloc[0]
+                    h = h.drop(index = f'{h.index[0]}')
+            # print(h.head())
+            
+            hold = pd.DataFrame()
+            fit_once_df = pd.DataFrame()
+            last_particip = first_participant[-1]
+            if int(last_particip) <10:
+                    last_particip = '0'+f'{last_particip}'
+            
+            for this_participant in first_participant:
+                if this_participant <10:
+                    this_participant = '0'+f'{this_participant}'
+                print('This participant is',this_participant)
+                
+                for i in range(len(files)-1):
+                    if  'trial001' in files[i]:
+                        continue
+                    
+                    if f'VP0{this_participant}' in files[i]:
+                        # print('file: ',files[i])
+                        if '0back' in files[i]:
+                            # print('0-back')
+                            if window_size != 0 and jump != -1:
+                                df_0_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_0_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_0_back.columns[-1]:
+                                del df_0_back[f'{df_0_back.columns[-1]}']
+                                
+                            df_0_back = df_0_back.T
+                            if type(df_0_back.columns[-1]) == int:
+                                if type(df_0_back.iloc[0][0]) == str:
+                                    df_0_back.columns = h.columns
+                                    df_0_back = df_0_back.drop(index = f'{df_0_back.index[0]}')
+                            # print(df_0_back.head())
+                            
+                            # Removes the NaN from EEG
+                            if df_0_back.isnull().values.any() and dataIS =='EEG':
+                                for i in range(df_0_back.shape[0]):
+                                    if df_0_back.isna().any(axis=1)[i]:
+                                        df_0_back  = df_0_back[df_0_back.index != i]
+                            
+                            if window_size != 0 and jump != -1:
+                                df_0_back.columns = h.columns
+                                df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_0_back.shape[0]):
+                                    if count%numOfIter !=0 or count ==0:
+                                        df = df.append(df_0_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_0_back = df2
+                            
+                            Y_0_back = [0]*df_0_back.shape[0]
+                            df_0_back.insert(0,'Y',Y_0_back)
+                            
+                            hold = hold.append(df_0_back, ignore_index = True)
+                        
+                        elif '2back' in files[i]:
+                            # print('2-back')
+                            if window_size != 0 and jump != -1:
+                                df_2_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                                
+                            else:
+                                df_2_back = pd.read_csv(files[i])
+                        
+                            if 'Unnamed' in df_2_back.columns[-1]:
+                                del df_2_back[f'{df_2_back.columns[-1]}']
+                                
+                            df_2_back = df_2_back.T
+                            if type(df_2_back.columns[-1]) == int:
+                                if type(df_2_back.iloc[0][0]) == str:
+                                    df_2_back.columns = h.columns
+                                    df_2_back = df_2_back.drop(index = f'{df_2_back.index[0]}')
+                    
+                            # Removes the NaN from EEG
+                            if df_2_back.isnull().values.any() and dataIS =='EEG':
+                                for i in range(df_2_back.shape[0]):
+                                    if df_2_back.isna().any(axis=1)[i]:
+                                        df_2_back  = df_2_back[df_2_back.index != i]
+                            
+                            if window_size != 0 and jump != -1:
+                                df_2_back.columns = h.columns
+                                df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_2_back.shape[0]):
+                                    if count%numOfIter !=0 or count ==0:
+                                        df = df.append(df_2_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_2_back = df2
+                            
+                            Y_2_back = [2]*df_2_back.shape[0]
+                            df_2_back.insert(0,'Y',Y_2_back)
+                            
+                            hold = hold.append(df_2_back, ignore_index = True)
+                        
+                        elif '3back' in files[i]:
+                            if window_size != 0 and jump != -1:
+                                df_3_back = pd.read_csv(files[i], skiprows = jump+skip_num, nrows = window_size)
+                            else:
+                                df_3_back = pd.read_csv(files[i])
+                            
+                            if 'Unnamed' in df_3_back.columns[-1]:
+                                del df_3_back[f'{df_3_back.columns[-1]}']
+                            
+                            df_3_back = df_3_back.T
+                            if type(df_3_back.columns[-1]) == int:
+                                if type(df_3_back.iloc[0][0]) == str:
+                                    df_3_back.columns = h.columns
+                                    df_3_back = df_3_back.drop(index = f'{df_3_back.index[0]}')
+                                    
+                            # Removes the NaN from EEG
+                            if df_3_back.isnull().values.any() and dataIS =='EEG':
+                                for i in range(df_3_back.shape[0]):
+                                    if df_3_back.isna().any(axis=1)[i]:
+                                        df_3_back  = df_3_back[df_3_back.index != i]
+                            
+                            if window_size != 0 and jump != -1:
+                                df_3_back.columns = h.columns
+                                df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
+                            else:
+                                count = 0
+                                df = pd.DataFrame(columns = h.columns)
+                                df2 = pd.DataFrame(columns = h.columns)
+                                for j in range(df_3_back.shape[0]):
+                                    if count%numOfIter !=0 or count ==0:
+                                        df = df.append(df_3_back.iloc[j], ignore_index = True)
+                                        count += 1
+                                    else:
+                                        # print('Bye')
+                                        df = df.mean(axis = 0, skipna = True).to_frame().T
+                                        df2 = df2.append(df, ignore_index = True)
+                                        df = pd.DataFrame()
+                                        count = 0
+                                df_3_back = df2
+                            
+                            Y_3_back = [3]*df_3_back.shape[0]
+                            df_3_back.columns = h.columns
+                            df_3_back.insert(0,'Y',Y_3_back)
+                            
+                            hold = hold.append(df_3_back, ignore_index = True)
+                        
+                        # print('here',i , len(files))
+                        
+                        if f'VP0{this_participant}' not in files[i+1]:
+                            # print('Run train_models')
+                            
+                            print(hold)
+                            
+                            if row_name != '':
+                                hold = check_columns(extract_path, hold, row_name, dataIS)
+                                print(hold)
+                            
+                            X = hold.iloc[:,1:].to_numpy()
+                            Y = hold.iloc[:,0].to_numpy()
+                            acc_values = pickle_model_test(X,Y)
+                            if window_size == 0 and jump == -1:
+                                print(acc_values[-1])
+                            rf_accuracy += acc_values[0]
+                            svm_accuracy += acc_values[1]
+                            knn_accuracy += acc_values[2]
+                            nn_accuracy += acc_values[3]
+                            gauss_accuracy += acc_values[4]
+                            SGD_accuracy += acc_values[5]
+                            consensus_accuracy += acc_values[6]
+                            string+=acc_values[-1]
+                            c+= 1
+                            
+                            #reseting hold
+                            hold = pd.DataFrame()
+ 
         if dataIS == "NIRS":
             files = []
             i = 0
@@ -1318,10 +1757,10 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
             
             h = pd.read_csv(files[0])
             if 'Unnamed' in h.columns[-1]:
-                del h['Unnamed: 109']
+                del h[f'{h.columns[-1]}']
             
             hold = pd.DataFrame()
-            partial_fit_df = pd.DataFrame()
+            fit_once_df = pd.DataFrame()
             last_particip = first_participant[-1]
             if int(last_particip) <10:
                     last_particip = '0'+f'{last_particip}'
@@ -1343,7 +1782,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df_0_back = pd.read_csv(files[i])
                         
                             if 'Unnamed' in df_0_back.columns[-1]:
-                                del df_0_back['Unnamed: 109']
+                                del df_0_back[f'{df_0_back.columns[-1]}']
                             
                             if window_size != 0 and jump != -1:
                                 df_0_back.columns = h.columns
@@ -1353,7 +1792,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df = pd.DataFrame(columns = h.columns)
                                 df2 = pd.DataFrame(columns = h.columns)
                                 for j in range(df_0_back.shape[0]):
-                                    if count%100 !=0 or count ==0:
+                                    if count%numOfIter !=0 or count ==0:
                                         df = df.append(df_0_back.iloc[j], ignore_index = True)
                                         count += 1
                                     else:
@@ -1377,7 +1816,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df_2_back = pd.read_csv(files[i])
                         
                             if 'Unnamed' in df_2_back.columns[-1]:
-                                del df_2_back['Unnamed: 109']
+                                del df_2_back[f'{df_2_back.columns[-1]}']
                             
                             if window_size != 0 and jump != -1:
                                 df_2_back.columns = h.columns
@@ -1387,7 +1826,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df = pd.DataFrame(columns = h.columns)
                                 df2 = pd.DataFrame(columns = h.columns)
                                 for j in range(df_2_back.shape[0]):
-                                    if count%100 !=0 or count ==0:
+                                    if count%numOfIter !=0 or count ==0:
                                         df = df.append(df_2_back.iloc[j], ignore_index = True)
                                         count += 1
                                     else:
@@ -1409,7 +1848,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df_3_back = pd.read_csv(files[i])
                             
                             if 'Unnamed' in df_3_back.columns[-1]:
-                                del df_3_back['Unnamed: 109']
+                                del df_3_back[f'{df_3_back.columns[-1]}']
                             
                             if window_size != 0 and jump != -1:
                                 df_3_back.columns = h.columns
@@ -1419,7 +1858,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                                 df = pd.DataFrame(columns = h.columns)
                                 df2 = pd.DataFrame(columns = h.columns)
                                 for j in range(df_3_back.shape[0]):
-                                    if count%100 !=0 or count ==0:
+                                    if count%numOfIter !=0 or count ==0:
                                         df = df.append(df_3_back.iloc[j], ignore_index = True)
                                         count += 1
                                     else:
@@ -1460,18 +1899,18 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                             #reseting hold
                             hold = pd.DataFrame()
 
-            rf_accuracy = rf_accuracy/c
-            svm_accuracy = svm_accuracy/c
-            knn_accuracy = knn_accuracy/c
-            nn_accuracy = nn_accuracy/c
-            gauss_accuracy = gauss_accuracy/c
-            consensus_accuracy = consensus_accuracy/c
-            SGD_accuracy = SGD_accuracy/c
-            
-            print("Overall List Accuracy")
-            print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
-            
-            return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, SGD_accuracy, consensus_accuracy, string]
+        rf_accuracy = rf_accuracy/c
+        svm_accuracy = svm_accuracy/c
+        knn_accuracy = knn_accuracy/c
+        nn_accuracy = nn_accuracy/c
+        gauss_accuracy = gauss_accuracy/c
+        consensus_accuracy = consensus_accuracy/c
+        SGD_accuracy = SGD_accuracy/c
+        
+        print("Overall List Accuracy")
+        print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
+        
+        return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, SGD_accuracy, consensus_accuracy, string]
     
     df = pd.DataFrame()
     if dataIS =='EEG':
@@ -1482,6 +1921,16 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                 if 'All_Data.csv' not in file and '.csv' in file:
                 # if 'average' in file and '.csv' in file:
                     files.append(os.path.join(r, file))
+        
+        h = pd.read_csv(files[2])
+        if 'Unnamed' in h.columns[-1]:
+            del h[f'{h.columns[-1]}'] 
+        h = h.T
+        if type(h.columns[-1]) == int:
+            if type(h.iloc[0][0]) == str:
+                h.columns = h.iloc[0]
+                h = h.drop(index = f'{h.index[0]}')
+        # print(h.head())
         
         hold = pd.DataFrame()
         first_part = 0
@@ -1517,14 +1966,18 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_0_back[f'{df_0_back.columns[-1]}'] 
                     
                     df_0_back = df_0_back.T
-                
-                    # Removes the NaN from EEG 
+                    if type(df_0_back.columns[-1]) == int:
+                        if type(df_0_back.iloc[0][0]) == str:
+                            df_0_back.columns = h.columns
+                            df_0_back = df_0_back.drop(index = f'{df_0_back.index[0]}')
+                    # print(df_0_back.head())
+                    
+                    # Removes the NaN from EEG
                     if df_0_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_0_back.shape[0]):
                             if df_0_back.isna().any(axis=1)[i]:
                                 df_0_back  = df_0_back[df_0_back.index != i]
                     
-                    # print(df_0_back['Time'][0])
                     if window_size != 0 and jump != -1:
                         df_0_back.columns = h.columns
                         df_0_back = df_0_back.mean(axis = 0, skipna = True).to_frame().T
@@ -1532,9 +1985,9 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         count = 0
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
-                        for i in range(df_0_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_0_back.iloc[i], ignore_index = True)
+                        for j in range(df_0_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_0_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
@@ -1545,7 +1998,6 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df_0_back = df2
                     
                     Y_0_back = [0]*df_0_back.shape[0]
-                    # df_0_back.columns = h.columns
                     df_0_back.insert(0,'Y',Y_0_back)
                     
                     hold = hold.append(df_0_back, ignore_index = True)
@@ -1562,8 +2014,13 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_2_back[f'{df_2_back.columns[-1]}'] 
                     
                     df_2_back = df_2_back.T
-                
-                    # Removes the NaN from EEG 
+                    if type(df_2_back.columns[-1]) == int:
+                        if type(df_2_back.iloc[0][0]) == str:
+                            df_2_back.columns = h.columns
+                            df_2_back = df_2_back.drop(index = f'{df_2_back.index[0]}')
+                    # print(df_0_back.head())
+                    
+                    # Removes the NaN from EEG
                     if df_2_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_2_back.shape[0]):
                             if df_2_back.isna().any(axis=1)[i]:
@@ -1576,9 +2033,9 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         count = 0
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
-                        for i in range(df_2_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_2_back.iloc[i], ignore_index = True)
+                        for j in range(df_2_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_2_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
@@ -1611,8 +2068,13 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_3_back[f'{df_3_back.columns[-1]}'] 
                     
                     df_3_back = df_3_back.T
+                    if type(df_3_back.columns[-1]) == int:
+                        if type(df_3_back.iloc[0][0]) == str:
+                            df_3_back.columns = h.columns
+                            df_3_back = df_3_back.drop(index = f'{df_3_back.index[0]}')
+                    # print(df_0_back.head())
                     
-                    # Removes the NaN from EEG 
+                    # Removes the NaN from EEG
                     if df_3_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_3_back.shape[0]):
                             if df_3_back.isna().any(axis=1)[i]:
@@ -1625,9 +2087,9 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         count = 0
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
-                        for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                        for j in range(df_3_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
@@ -1653,7 +2115,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         if hold.isna().any(axis=1)[i]:
                             hold  = hold[hold.index != i]
                 
-                # print(hold)
+                print(hold)
                 
                 X = hold.iloc[:,1:].to_numpy()
                 Y = hold.iloc[:,0].to_numpy()
@@ -1689,8 +2151,13 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         del df_3_back[f'{df_3_back.columns[-1]}'] 
                     
                     df_3_back = df_3_back.T
+                    if type(df_3_back.columns[-1]) == int:
+                        if type(df_3_back.iloc[0][0]) == str:
+                            df_3_back.columns = h.columns
+                            df_3_back = df_3_back.drop(index = f'{df_3_back.index[0]}')
+                    # print(df_0_back.head())
                     
-                    # Removes the NaN from EEG 
+                    # Removes the NaN from EEG
                     if df_3_back.isnull().values.any() and dataIS =='EEG':
                         for i in range(df_3_back.shape[0]):
                             if df_3_back.isna().any(axis=1)[i]:
@@ -1703,9 +2170,9 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         count = 0
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
-                        for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
-                                df = df.append(df_3_back.iloc[i], ignore_index = True)
+                        for j in range(df_3_back.shape[0]):
+                            if count%numOfIter !=0 or count ==0:
+                                df = df.append(df_3_back.iloc[j], ignore_index = True)
                                 count += 1
                             else:
                                 # print('Bye')
@@ -1764,7 +2231,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
         # print(files)
         h = pd.read_csv(files[0])
         if 'Unnamed' in h.columns[-1]:
-            del h['Unnamed: 109']
+            del h[f'{h.columns[-1]}']
             # print(h.head())
         
         hold = pd.DataFrame()
@@ -1794,7 +2261,8 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df_0_back = pd.read_csv(files[i])
                 
                     if 'Unnamed' in df_0_back.columns[-1]:
-                        del df_0_back['Unnamed: 109']
+                        del df_0_back[f'{df_0_back.columns[-1]}']
+                    
                     
                     if window_size != 0 and jump != -1:
                         df_0_back.columns = h.columns
@@ -1804,7 +2272,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_0_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_0_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -1829,8 +2297,8 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df_2_back = pd.read_csv(files[i])
                 
                     if 'Unnamed' in df_2_back.columns[-1]:
-                        del df_2_back['Unnamed: 109']
-                    
+                        del df_2_back[f'{df_2_back.columns[-1]}']
+
                     if window_size != 0 and jump != -1:
                         df_2_back.columns = h.columns
                         df_2_back = df_2_back.mean(axis = 0, skipna = True).to_frame().T
@@ -1839,7 +2307,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_2_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_2_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -1866,7 +2334,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df_3_back = pd.read_csv(files[i])
                     
                     if 'Unnamed' in df_3_back.columns[-1]:
-                        del df_3_back['Unnamed: 109']
+                        del df_3_back[f'{df_3_back.columns[-1]}']
                     
                     if window_size != 0 and jump != -1:
                         df_3_back.columns = h.columns
@@ -1876,7 +2344,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -1924,9 +2392,6 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                     else:
                         df_3_back = pd.read_csv(files[i])
                     
-                    if 'Unnamed' in df_3_back.columns[-1]:
-                        del df_3_back['Unnamed: 109']
-                    
                     if window_size != 0 and jump != -1:
                         df_3_back.columns = h.columns
                         df_3_back = df_3_back.mean(axis = 0, skipna = True).to_frame().T
@@ -1935,7 +2400,7 @@ def test_models(extract_path, dataIS, first_participant,window_size=0,jump=-1,ro
                         df = pd.DataFrame(columns = h.columns)
                         df2 = pd.DataFrame(columns = h.columns)
                         for i in range(df_3_back.shape[0]):
-                            if count%100 !=0 or count ==0:
+                            if count%numOfIter !=0 or count ==0:
                                 df = df.append(df_3_back.iloc[i], ignore_index = True)
                                 count += 1
                             else:
@@ -2000,6 +2465,11 @@ def pickle_model_test(X,Y):
     # x_train, x_test, y_train, y_test = train_test_split(X,Y, test_size=0.1)
     x_test = np.array(X)
     y_test = np.array(Y)
+    
+    # print('X:',X)
+    # print('Y:',Y)
+    # print(X.shape)
+    # print(Y.shape)
     #* StandardScaler is ESSENTIAL for NN
     sc = StandardScaler()
     x_test = sc.fit_transform(x_test)
@@ -2348,7 +2818,7 @@ def run_models(numOfIter, X, Y, select_col):
     
     return [rf_accuracy, svm_accuracy, knn_accuracy, nn_accuracy, gauss_accuracy, consensus_accuracy, string]
 
-def cross_validate(numOfIter, X, Y, select_col):
+def all_data_single_file(numOfIter, X, Y, select_col):
     
     rf_accuracy = 0
     svm_accuracy = 0
@@ -2410,95 +2880,110 @@ def remove_negative_time(dataIS,files):
     # print(files)
     if dataIS =='EEG':
         df = pd.read_csv(files)
-        df.T
-        # print(df.columns)
+        
+        if 'Unnamed' in df.columns[-1]:
+            del df[f'{df.columns[-1]}']
+        
+        # Assuming data is transposed
+        df = df.T
+        if type(df.columns[0]) == int:
+                if type(df.iloc[0][0]) == str:
+                    df.columns = df.iloc[0]
+                    df = df.drop(index = f'{df.index[0]}')
+                    if 'Time' not in df.columns:
+                        df.insert(0,'Time',df.index)
+                    df.index = list(range(df.shape[0]))
+        
         for i in range(df.shape[0]):
-            if df['Time'][i] <0:
+            if float(df['Time'][i]) <0:
                 # print(df['Time'][i])
                 df = df.drop([i], axis=0)
-        
-        if 'Unnamed' in df.columns[-1] and dataIS =='NIRS':
-            del df['Unnamed: 109']
-        # print(df)
-        
-        if df.isnull().values.any() and dataIS =='EEG':
-            for i in range(df.shape[0]):
-                if df.isna().any(axis=1)[i]:
-                    df  = df[df.index != i]
-                    
+        df = df.T
+        df.rename_axis(None, inplace=True)
+        df.insert(0,'',df.index)
+        df.columns = df.iloc[0]
+        df = df.drop(index = f'{df.index[0]}')
         df.to_csv(files, index=False)
         
     if dataIS == "NIRS":
         df = pd.read_csv(files)
-        # print(df.columns)
         for i in range(df.shape[0]):
-            # if df['Time'][i] <0 or 15 < df['Time'][i] <35 or 55 < df['Time'][i]:
             if df['Time'][i] <0:
-                # print(df['Time'][i])
                 df = df.drop([i], axis=0)
         
-        if 'Unnamed' in df.columns[-1] and dataIS =='NIRS':
-            del df['Unnamed: 109']
-        # print(df)
-        
-        if df.isnull().values.any() and dataIS =='EEG':
-            for i in range(df.shape[0]):
-                if df.isna().any(axis=1)[i]:
-                    df  = df[df.index != i]
+        if 'Unnamed' in df.columns[-1]:
+            del df[f'{df.columns[-1]}']
                     
         df.to_csv(files, index=False)
 
 if __name__ == '__main__':
     # x is data type (EEG or NIRS), y is boolean (restrict data or not)
-    x = str(sys.argv[1])
-    y = str(sys.argv[2])
-    z = str(sys.argv[3])
-    a = str(sys.argv[4])
-    path = str(sys.argv[5])
-	
-    #rows_names = [] 
-    #path = ''
-    #x = 'NIRS'
-    #y = ''
+    # x = str(sys.argv[1])
+    # y = str(sys.argv[2])
+    # z = str(sys.argv[3])
+    # a = str(sys.argv[4])
+    # path = str(sys.argv[5])
+    # rows_names = [] 
+    path = 'C:\\Users\\owner\\Documents\\GitHub\\Capstone_490\\Alejandro'
+    x = 'NIRS'
+    y = ''
     
-    #z = 'False'
+    z = 'False'
     window_analysis = False
-    
-    #a = 'True'
-    tts_participant = False
-
-    #if z == 'True':
-    if z:
+    if z == 'True':
         window_analysis = True
-        
-    if a == 'True':
-        tts_participant = True
-
+    
     just_do = ''
     remove_neg_time = False
-    input_percent = '80.5%'
+    input_percent = ''
 
     print(y)
     if y == 'frontal':
         if x == "EEG":
             rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']
         elif x == "NIRS":
-            rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']
+            print('This feature has not been implemented')
+            # return
+            # rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']
     
     elif y == 'parietal':
         if x == "EEG":
             rows_names=  ['FC5','FC1','T7','C3','Cz','CP5','CP1','FC2','FC6','C4','T8','CP2','CP6','P4']
         elif x == "NIRS":
-            rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']    
+            print('This feature has not been implemented')
+            # return
+            # rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']    
             
     elif y == 'occipital':
         if x == "EEG":
             rows_names=  ['P7','P3','Pz', 'P4','P8', 'POz', 'O1','O2']
         elif x == "NIRS":
-            rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']
+            print('This feature has not been implemented')
+            # return
+            # rows_names=  ['FP1','FP2','F1','F2', 'AFz', 'AFF5','AFF6']
     else:
         rows_names = y
     
     all_data_file_exists = False
+    if not remove_neg_time:
+        sys.stdout.write(str(exec_Code(path, x, rows_names, window_analysis, just_do, input_percent, remove_neg_time)))
+    
+    # Remove negative time
+    # r=root, d=directories, f = files
+    elif remove_neg_time:
+        for r, d, f in os.walk(extract_path):
+            for file in f:
+                if '.csv' in file and 'All_Data' not in file:
+                    files.append(os.path.join(r, file))
         
-    sys.stdout.write(str(exec_Code(path, x, rows_names, window_analysis, tts_participant, just_do, input_percent, remove_neg_time)))
+        for i in range(len(files)):
+            if dataIS == 'EEG' and 'trial001' in files[i]:
+                continue
+            remove_negative_time(dataIS,files[i])
+            
+        print('Files have been edited and negative time removed')
+        
+        sys.stdout.write(str(exec_Code(path, x, rows_names, window_analysis, just_do, input_percent, remove_neg_time)))
+        
+        print('Goodbye Friend')
+    
