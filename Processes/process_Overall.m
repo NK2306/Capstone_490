@@ -1,4 +1,4 @@
-function varargout = process_NIRSpreprocess( varargin )
+function varargout = process_Overall( varargin )
 
 % @=============================================================================
 % This function is part of the Brainstorm software:
@@ -133,10 +133,36 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.option_data_type.Value = 'EEG';
     sProcess.options.option_data_type.Class='ML';
     
-    sProcess.options.restrict_data.Comment = 'Restrict Data Size (True or False)';
-    sProcess.options.restrict_data.Type = 'text';
-    sProcess.options.restrict_data.Value = 'False';
-    sProcess.options.restrict_data.Class='ML';
+    sProcess.options.option_ML_operation_mode.Comment = 'Operation mode: ';
+    sProcess.options.option_ML_operation_mode.Type    = 'combobox';
+    sProcess.options.option_ML_operation_mode.Value   = {1, {'Train', 'Test', 'Train-Test split'}};
+    sProcess.options.option_ML_operation_mode.Class='ML';
+    
+    %To disable when either test or train is selected
+    sProcess.options.train_percentage.Comment = 'Percentage of data to be used for training (Train-Test split only): ';
+    sProcess.options.train_percentage.Type    = 'value';
+    sProcess.options.train_percentage.Value   = {80, '%', 0};
+    sProcess.options.train_percentage.Class='ML';
+    
+    sProcess.options.sliding_windows_method.Comment = 'Use sliding windows method';
+    sProcess.options.sliding_windows_method.Type    = 'checkbox';
+    sProcess.options.sliding_windows_method.Value   = 0;
+    sProcess.options.sliding_windows_method.Class='ML';
+    
+    sProcess.options.sliding_tts_method.Comment = 'Use tts method';
+    sProcess.options.sliding_tts_method.Type    = 'checkbox';
+    sProcess.options.sliding_tts_method.Value   = 0;
+    sProcess.options.sliding_tts_method.Class='ML';
+    
+    sProcess.options.negative_time.Comment = 'Remove negative time';
+    sProcess.options.negative_time.Type    = 'checkbox';
+    sProcess.options.negative_time.Value   = 0;
+    sProcess.options.negative_time.Class='ML';
+    
+    sProcess.options.option_sensors_group.Comment = 'Select sensors group: ';
+    sProcess.options.option_sensors_group.Type    = 'combobox';
+    sProcess.options.option_sensors_group.Value   = {1, {'Frontal', 'Parietal', 'Occupital', 'All'}};
+    sProcess.options.option_sensors_group.Class='ML';
 end
 
 %% ===== FORMAT COMMENT =====
