@@ -113,6 +113,11 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.coefficient_variation.Type    = 'value';
     sProcess.options.coefficient_variation.Value   = {10, '%', 0};
     sProcess.options.coefficient_variation.Class='variation';
+    
+    sProcess.options.bad_channels_percentage.Comment = 'Percentage of bad channels to disqualify a trial:  ';
+    sProcess.options.bad_channels_percentage.Type    = 'value';
+    sProcess.options.bad_channels_percentage.Value   = {60, '%', 0};
+    sProcess.options.bad_channels_percentage.Class='variation';
 
 end
 
@@ -211,9 +216,9 @@ function [isBad] = Compute(sData, channel_def, options)
         CV_channels = false(1,nb_chnnels);
         CV_channels(nirs_flags) = CV>CV_threshold ;
         
-        percentage = (sum(CV_channels) /nb_chnnels);
+        percentage = (sum(CV_channels) /nb_chnnels) * 100;
         
-        isBad = percentage < 0.6; %Add this threshold to the GUI
+        isBad = percentage > options.bad_channels_percentage.Value{1}; %Add this threshold to the GUI
         
         %{
         

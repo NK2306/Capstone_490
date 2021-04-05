@@ -1,4 +1,4 @@
-function varargout = process_Overall( varargin )
+function varargout = process_NIRS_MC_Preprocess( varargin )
 
 % @=============================================================================
 % This function is part of the Brainstorm software:
@@ -29,7 +29,7 @@ end
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
     %TOCHECK: how do we limit the input file types (only NIRS data)?
-    sProcess.Comment     = 'Big Process for Capstone 490';
+    sProcess.Comment     = 'NIRS data preprocess';
     sProcess.FileTag     = '';
     sProcess.Category    = 'File';
     sProcess.SubGroup    = 'Capstone';
@@ -51,6 +51,21 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.option_motion_correction.Type    = 'checkbox';
     sProcess.options.option_motion_correction.Value   = 0;
     sProcess.options.option_motion_correction.Controller='motion_correction';
+    
+    sProcess.options.option_chan_name.Comment = 'Channel event name: ';
+    sProcess.options.option_chan_name.Type    = 'text';
+    sProcess.options.option_chan_name.Value   = 'S1D1WL685';
+    sProcess.options.option_chan_name.Class='motion_correction';
+    
+    sProcess.options.windows_length.Comment = 'Windows length';
+    sProcess.options.windows_length.Type    = 'value';
+    sProcess.options.windows_length.Value   = {10,'s',0};
+    sProcess.options.windows_length.Class='motion_correction';
+    
+    sProcess.options.MC_method.Comment = 'Select motion correction method: ';
+    sProcess.options.MC_method.Type    = 'combobox';
+    sProcess.options.MC_method.Value   = {1, {'PCA angular', 'Short distance'}};
+    sProcess.options.MC_method.Class='motion_correction';
     
     %////////////////////////////////////////////////////////// NIRS /////////////////////////////////////////////////////
     sProcess.options.option_NIRS_preprocessing.Comment = '<b>NIRS preprocessing</b>';
@@ -109,60 +124,10 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.bad_channels_percentage.Value   = {60, '%', 0};
     sProcess.options.bad_channels_percentage.Class='variation';
     
-    sProcess.options.option_NIRS_average.Comment = 'Generate average files<BR><BR>';
+    sProcess.options.option_NIRS_average.Comment = 'Generate average files';
     sProcess.options.option_NIRS_average.Type    = 'checkbox';
     sProcess.options.option_NIRS_average.Value   = 0;
     sProcess.options.option_NIRS_average.Class='NIRS';
-    
-    %////////////////////////////////////////////////////////// EEG /////////////////////////////////////////////////////
-    sProcess.options.option_EEG_preprocessing.Comment = '<b>EEG preprocessing</b>';
-    sProcess.options.option_EEG_preprocessing.Type    = 'checkbox';
-    sProcess.options.option_EEG_preprocessing.Value   = 0;
-    sProcess.options.option_EEG_preprocessing.Controller='EEG';
-    
-    
-    %////////////////////////////////////////////////////////// Machine Learning /////////////////////////////////////////////////////
-    
-    sProcess.options.option_ML_classifier.Comment = '<b>Train ML classifier</b>';
-    sProcess.options.option_ML_classifier.Type    = 'checkbox';
-    sProcess.options.option_ML_classifier.Value   = 0;
-    sProcess.options.option_ML_classifier.Controller='ML';
-    
-    sProcess.options.option_data_type.Comment = 'Type of Data (EEG or NIRS)';
-    sProcess.options.option_data_type.Type = 'text';
-    sProcess.options.option_data_type.Value = 'EEG';
-    sProcess.options.option_data_type.Class='ML';
-    
-    sProcess.options.option_ML_operation_mode.Comment = 'Operation mode: ';
-    sProcess.options.option_ML_operation_mode.Type    = 'combobox';
-    sProcess.options.option_ML_operation_mode.Value   = {1, {'Train', 'Test', 'Train-Test split'}};
-    sProcess.options.option_ML_operation_mode.Class='ML';
-    
-    %To disable when either test or train is selected
-    sProcess.options.train_percentage.Comment = 'Percentage of data to be used for training (Train-Test split only): ';
-    sProcess.options.train_percentage.Type    = 'value';
-    sProcess.options.train_percentage.Value   = {80, '%', 0};
-    sProcess.options.train_percentage.Class='ML';
-    
-    sProcess.options.sliding_windows_method.Comment = 'Use sliding windows method';
-    sProcess.options.sliding_windows_method.Type    = 'checkbox';
-    sProcess.options.sliding_windows_method.Value   = 0;
-    sProcess.options.sliding_windows_method.Class='ML';
-    
-    sProcess.options.sliding_tts_method.Comment = 'Use tts method';
-    sProcess.options.sliding_tts_method.Type    = 'checkbox';
-    sProcess.options.sliding_tts_method.Value   = 0;
-    sProcess.options.sliding_tts_method.Class='ML';
-    
-    sProcess.options.negative_time.Comment = 'Remove negative time';
-    sProcess.options.negative_time.Type    = 'checkbox';
-    sProcess.options.negative_time.Value   = 0;
-    sProcess.options.negative_time.Class='ML';
-    
-    sProcess.options.option_sensors_group.Comment = 'Select sensors group: ';
-    sProcess.options.option_sensors_group.Type    = 'combobox';
-    sProcess.options.option_sensors_group.Value   = {1, {'Frontal', 'Parietal', 'Occupital', 'All'}};
-    sProcess.options.option_sensors_group.Class='ML';
 end
 
 %% ===== FORMAT COMMENT =====
@@ -181,6 +146,14 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     tasks = {'0-back_session', '2-back_session','3-back_session'};
     db_folder = current_protocol.STUDIES;
     NIRS_data_path = fullfile(bst_get('BrainstormUserDir'),'NIRS_Data');
+    
+    %////////////////////////////////////////////// Motion correction
+    if (sProcess.options.option_motion_correction.Value)
+        sFiles = bst_process('CallProcess', 'process_GLM', sFiles, [], ...
+                                'option_chan_name', sProcess.options.option_chan_name.Value, ...
+                                'windows_length',   sProcess.options.windows_length.Value{1}, ...
+                                'MC_method',        sProcess.options.MC_method.Value{1});
+    end
 
     %////////////////////////////////////////////// NIRS preprocessing
     if (sProcess.options.option_NIRS_preprocessing.Value)
@@ -212,22 +185,6 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
 
         %Export to CSV files
         Export_to_csv(db_folder, num_of_trials, tasks, NIRS_data_path) 
-    end
-    
-    %////////////////////////////////////////////// ML processing
-    if (sProcess.options.option_ML_classifier.Value)
-        %if (sProcess.options.option_NIRS_preprocessing.Value)
-        if (sProcess.options.option_data_type.Value == 'NIRS')
-            %Creating All_Data folder for NIRS
-            NIRS_All_Data_path = fullfile(NIRS_data_path, 'All_Data');
-            if (~exist(NIRS_All_Data_path))
-                mkdir(fullfile(NIRS_data_path, 'All_Data'));
-            end
-            %Call ML script for NIRS
-            syscmd = sprintf('python %s %s', 'G:/test_ML.py', bst_get('BrainstormUserDir'));
-            [status, commandOut] = system(syscmd);
-            commandOut
-        end
     end
 end
 
