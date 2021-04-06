@@ -128,6 +128,7 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, just_do, input_perce
                 SGD_accuracy += acc_values[5]
                 consensus_accuracy += acc_values[6]
                 c+= 1
+                
                 # Reset values
                 os.remove("Pickled_models\\rf_model.pkl")
                 os.remove("Pickled_models\\svm_model.pkl")
@@ -135,7 +136,6 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, just_do, input_perce
                 os.remove("Pickled_models\\nn_model.pkl")
                 os.remove("Pickled_models\\gauss_model.pkl")
                 os.remove("Pickled_models\\SGD_model.pkl")
-            
             rf_accuracy = rf_accuracy/c
             svm_accuracy = svm_accuracy/c
             knn_accuracy = knn_accuracy/c
@@ -157,7 +157,10 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, just_do, input_perce
         else:
             print('No Percentage Given, Use Default')
             print("Train test split inter-participants")
-
+            print("Data type:", dataIS)
+            
+            last_train_participant = round((80)/100.0*(int(last_participant)))
+            
             if row_name == '':
                 # Test the model  
                 train_models(extract_path, dataIS, last_train_participant)
@@ -179,6 +182,7 @@ def exec_Code(data_path, dataIS, row_name, window_analysis, just_do, input_perce
             # os.remove("Pickled_models\\nn_model.pkl")
             # os.remove("Pickled_models\\gauss_model.pkl")
             # os.remove("Pickled_models\\SGD_model.pkl")
+            
 
         
     #* Sliding window analysis to get accuracy in that time frame
@@ -2213,8 +2217,9 @@ def test_models(extract_path, dataIS, first_participant,row_name = '',window_siz
                 consensus_accuracy += acc_values[6]
                 string+=acc_values[-1]
 
-                c+= 1
+                print(hold)
                 
+                c+= 1
                 #reseting hold
                 hold = pd.DataFrame()
                 break
@@ -2447,6 +2452,7 @@ def test_models(extract_path, dataIS, first_participant,row_name = '',window_siz
     consensus_accuracy = consensus_accuracy/c
     SGD_accuracy = SGD_accuracy/c
     
+    print(dataIS)
     print("Overall Accuracy")
     print(show_accuracy(rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy, gauss_accuracy, consensus_accuracy, SGD_accuracy))
     
@@ -2616,8 +2622,8 @@ def pickle_model_test(X,Y):
     with open("Pickled_models\\gauss_model.pkl", 'wb') as file:
         pickle.dump(gauss_model, file)  
     
-    # with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
-    #     pickle.dump(SGD_model, file)
+    with open("Pickled_models\\SGD_model.pkl", 'wb') as file:
+        pickle.dump(SGD_model, file)
 
     return [rf_accuracy, svm_accuracy, knn_accuracy,nn_accuracy,gauss_accuracy, SGD_accuracy, consensus_accuracy, string]
 
@@ -2925,8 +2931,8 @@ if __name__ == '__main__':
     # path = str(sys.argv[5])
     # rows_names = [] 
     path = 'C:\\Users\\owner\\Documents\\GitHub\\Capstone_490\\Alejandro'
-    x = 'NIRS'
-    y = ''
+    x = 'EEG'
+    y = 'frontal'
     
     z = 'False'
     window_analysis = False
