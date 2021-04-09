@@ -2,7 +2,7 @@
 % Auteur : Edouard Delaire, Melanie Pelegrini-Issac
 
 %Definition du protocole  
-protocol_name='shin_worload';
+protocol_name='shin_workload';
 
 nirs_data_folder='/NAS/home/kh_guy/Capstone/ProcessedShinData/Shin_Data/NIRS_01-26_MATLAB';
 eeg_data_folder='/NAS/home/edelaire/Documents/data/shin/eeg';
